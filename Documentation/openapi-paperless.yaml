@@ -1,0 +1,1328 @@
+﻿openapi: 3.0.4
+info:
+  title: Document Management REST API
+  version: 1.0.0
+  description: |
+    UI-facing REST API for a Document Management System (.NET 9 + ASP.NET)
+    Public API used by the Web UI to upload, process, search, share, and manage documents.
+    Internal workers (OCR, GenAI summary, indexing) run in separate containers and are not directly
+    exposed here. Optional/nice-to-have features are marked via `x-optional: true` or may return 501
+    (Not Implemented) until implemented.
+
+    ## Key decisions
+    - Runtime: .NET 9 + ASP.NET
+    - Consumers: Internal web UI (future external UIs possible)
+    - Auth: JWT Bearer for users; API Key for workers; PSK (token + password) for guest access
+    - Uploads: Multipart, multiple files supported
+    - Processing pipeline (asynchronous-ready): OCR → GenAI summary → Indexing
+    - Search: free-text + filters; page-based pagination (page/pageSize with 10, 20, 50; default 20, max 100)
+    - Soft-delete with recycle bin; optional hard purge
+    - Workspaces for scoping; sharing via password-protected links
+    - Approvals feature included as optional (can return 501 until implemented)
+    - Problem details: RFC7807 with `traceId`
+
+  contact:
+    name: Project Team
+    url: http://localhost:8081/
+servers:
+  - url: http://localhost:8080
+    description: Local development (HTTP)
+  - url: https://localhost:8080
+    description: Local development (HTTPS/TLS)
+
+tags:
+  - name: Uploads
+    description: Create new documents by uploading one or more files.
+  - name: Documents
+    description: Retrieve and manage documents and their metadata.
+  - name: Processing
+    description: Inspect processing status and trigger re-processing actions.
+  - name: Search
+    description: Search and filter documents.
+  - name: Workspaces
+    description: Organize documents into workspaces and manage membership.
+  - name: Sharing
+    description: Create and manage password-protected share links for guests.
+  - name: Stats
+    description: Access statistics (daily aggregates) for documents.
+  - name: Admin
+    description: Health, readiness, diagnostics, and audit logs.
+  - name: Approvals (optional)
+    description: Optional approval workflows for documents.
+    x-optional: true
+
+paths:
+  /health:
+    get:
+      tags: [Admin]
+      summary: Liveness check
+      operationId: health
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+
+  /ready:
+    get:
+      tags: [Admin]
+      summary: Readiness check
+      operationId: ready
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "READY"
+
+  /v1/uploads:
+    post:
+      tags: [Uploads]
+      summary: Upload one or more files and create document records
+      operationId: uploadFiles
+      security:
+        - bearerAuth: []
+        - apiKeyWorker: []   # workers may also create docs if needed
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  minItems: 1
+                  description: One or more files to upload (pdf, docx, images, etc.).
+                metadata:
+                  type: string
+                  description: |
+                    Optional JSON object mapping original filenames to metadata.
+                    Example:
+                    {
+                      "scan1.pdf": {"title":"March invoice","tags":["invoice","2025-03"],"lang":"de"},
+                      "contract.docx": {"title":"NDA","tags":["contract"],"lang":"en"}
+                    }
+              required: [files]
+      responses:
+        "201":
+          description: Documents created
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+              examples:
+                created:
+                  summary: Example response
+                  value:
+                    documents:
+                      - id: "a3dfb8a1-6d3a-47c8-9c2d-2c9e0e7a0c1e"
+                        filename: "scan1.pdf"
+                        size: 523423
+                        fileType: "application/pdf"
+                        uploadDate: "2025-09-25T10:15:00Z"
+                        processing:
+                          ocr: { status: "NOT_PROCESSED" }
+                          summary: { status: "NOT_PROCESSED" }
+                          index: { status: "NOT_PROCESSED" }
+                        securityScan:
+                          $ref: "#/components/schemas/VirusScanResult"
+                    errors: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          $ref: "#/components/responses/TooLarge"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /v1/documents:
+    get:
+      tags: [Documents, Search]
+      summary: List documents with optional filters (page-based)
+      operationId: listDocuments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/q"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/fileType"
+        - $ref: "#/components/parameters/sizeMin"
+        - $ref: "#/components/parameters/sizeMax"
+        - $ref: "#/components/parameters/uploadDateFrom"
+        - $ref: "#/components/parameters/uploadDateTo"
+        - $ref: "#/components/parameters/hasSummary"
+        - $ref: "#/components/parameters/hasError"
+        - $ref: "#/components/parameters/uploaderId"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+        - $ref: "#/components/parameters/approvalStatus"
+        - $ref: "#/components/parameters/shared"
+      responses:
+        "200":
+          description: Paged result
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPage"
+
+  /v1/documents/{id}:
+    get:
+      tags: [Documents]
+      summary: Get a document by id
+      operationId: getDocument
+      security:
+        - bearerAuth: []
+        - shareToken: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/sharePassword"
+      responses:
+        "200":
+          description: Document
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Documents]
+      summary: Update document metadata (JSON Merge Patch)
+      operationId: patchDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/ifMatch"
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: "#/components/schemas/DocumentPatch"
+      responses:
+        "200":
+          description: Updated
+          headers:
+            ETag:
+              $ref: "#/components/headers/ETag"
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    delete:
+      tags: [Documents]
+      summary: Soft delete a document (move to recycle bin)
+      operationId: deleteDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "204":
+          description: Deleted (soft)
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/documents/{id}:restore:
+    post:
+      tags: [Documents]
+      summary: Restore a soft-deleted document
+      operationId: restoreDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "204":
+          description: Restored
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/documents/{id}:purge:
+    delete:
+      tags: [Documents]
+      summary: Hard-delete a document (irreversible)
+      operationId: purgeDocument
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "204":
+          description: Purged
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/recycle-bin:
+    get:
+      tags: [Documents]
+      summary: List soft-deleted documents
+      operationId: listDeleted
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+      responses:
+        "200":
+          description: Paged deleted documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPage"
+
+  /v1/documents/{id}/file:
+    get:
+      tags: [Documents]
+      summary: Download original file (supports Range requests)
+      operationId: downloadFile
+      security:
+        - bearerAuth: []
+        - shareToken: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/sharePassword"
+      responses:
+        "200":
+          description: File stream
+          headers:
+            Accept-Ranges:
+              description: bytes
+              schema: { type: string, example: "bytes" }
+            Content-Length:
+              schema: { type: integer, format: int64 }
+            ETag:
+              $ref: "#/components/headers/WeakETag"
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Partial content
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/documents/{id}/processing:
+    get:
+      tags: [Processing]
+      summary: Get processing status (OCR, Summary, Index) for a document
+      operationId: getProcessingStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Processing status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessingStatus"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/documents/{id}/actions/redo-ocr:
+    post:
+      tags: [Processing]
+      summary: Re-trigger OCR for a document
+      operationId: redoOcr
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "202":
+          description: Reprocessing queued
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/documents/{id}/actions/redo-summary:
+    post:
+      tags: [Processing]
+      summary: Re-trigger GenAI summary for a document
+      operationId: redoSummary
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "202":
+          description: Reprocessing queued
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/documents/{id}/summaries:
+    get:
+      tags: [Documents]
+      summary: List summaries for a document (latest first)
+      operationId: listSummaries
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Summary"
+
+  /v1/search:
+    get:
+      tags: [Search]
+      summary: Search documents (free-text + filters)
+      operationId: searchDocuments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/q"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/fileType"
+        - $ref: "#/components/parameters/sizeMin"
+        - $ref: "#/components/parameters/sizeMax"
+        - $ref: "#/components/parameters/uploadDateFrom"
+        - $ref: "#/components/parameters/uploadDateTo"
+        - $ref: "#/components/parameters/hasSummary"
+        - $ref: "#/components/parameters/hasError"
+        - $ref: "#/components/parameters/uploaderId"
+        - $ref: "#/components/parameters/workspaceIdQuery"
+        - $ref: "#/components/parameters/approvalStatus"
+        - $ref: "#/components/parameters/shared"
+      responses:
+        "200":
+          description: Paged search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPage"
+
+  /v1/workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List workspaces
+      operationId: listWorkspaces
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Workspace" }
+    post:
+      tags: [Workspaces]
+      summary: Create a workspace
+      operationId: createWorkspace
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+
+  /v1/workspaces/{workspaceId}:
+    get:
+      tags: [Workspaces]
+      summary: Get a workspace
+      operationId: getWorkspace
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Workspaces]
+      summary: Update workspace (JSON Merge Patch)
+      operationId: patchWorkspace
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/ifMatch"
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              $ref: "#/components/schemas/WorkspacePatch"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+    delete:
+      tags: [Workspaces]
+      summary: Delete a workspace
+      operationId: deleteWorkspace
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "204":
+          description: Deleted
+
+  /v1/workspaces/{workspaceId}/members:
+    get:
+      tags: [Workspaces]
+      summary: List workspace members
+      operationId: listWorkspaceMembers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WorkspaceMember"
+    post:
+      tags: [Workspaces]
+      summary: Add a member to a workspace
+      operationId: addWorkspaceMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkspaceMemberCreate"
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceMember"
+
+  /v1/workspaces/{workspaceId}/members/{userId}:
+    delete:
+      tags: [Workspaces]
+      summary: Remove a workspace member
+      operationId: removeWorkspaceMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/workspaceIdPath"
+        - $ref: "#/components/parameters/userId"
+      responses:
+        "204":
+          description: Removed
+
+  /v1/documents/{id}/shares:
+    get:
+      tags: [Sharing]
+      summary: List share links for a document
+      operationId: listShares
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Share"
+    post:
+      tags: [Sharing]
+      summary: Create a password-protected share link
+      operationId: createShare
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Share"
+
+  /v1/shares/{shareId}:
+    get:
+      tags: [Sharing]
+      summary: Get a share configuration
+      operationId: getShare
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/shareId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Share"
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Sharing]
+      summary: Revoke a share
+      operationId: deleteShare
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/shareId"
+      responses:
+        "204":
+          description: Revoked
+
+  /v1/documents/{id}/stats:
+    get:
+      tags: [Stats]
+      summary: Get daily access stats for a document
+      operationId: getDocumentStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/fromDate"
+        - $ref: "#/components/parameters/toDate"
+      responses:
+        "200":
+          description: Time series
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessStatsSeries"
+
+  /v1/stats/top:
+    get:
+      tags: [Stats]
+      summary: Get top documents by views/downloads
+      operationId: getTopStats
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [daily]
+            default: daily
+        - name: metric
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [views, downloads]
+            default: views
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        document:
+                          $ref: "#/components/schemas/DocumentRef"
+                        count:
+                          type: integer
+                          format: int64
+
+  /v1/admin/diagnostics:
+    get:
+      tags: [Admin]
+      summary: Read-only diagnostics (no secrets)
+      operationId: diagnostics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workerConnected:
+                    type: boolean
+                  queueBacklog:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  version:
+                    type: string
+                    example: "1.0.0"
+
+  /v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Query audit logs (admin only)
+      operationId: listAuditLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [minimal, normal, excessive]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogEntry"
+
+  /v1/approvals:
+    get:
+      tags: ["Approvals (optional)"]
+      summary: List approval requests (optional feature)
+      description: Returns 501 until implemented if approvals feature is disabled.
+      operationId: listApprovals
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApprovalRequest"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Standard user authentication. JWT MUST include `sub` (user id) and `role` array:
+        `admin`, `user`, or `guest`. Recommended claims: `iss`, `aud`.
+    apiKeyWorker:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Worker-to-API authentication for pipeline triggers.
+    shareToken:
+      type: apiKey
+      in: header
+      name: X-Share-Token
+      description: >
+        Pre-shared token for guest access. Operations that accept `shareToken` also require
+        the header `X-Share-Password` (see `sharePassword` parameter).
+
+  headers:
+    ETag:
+      description: Strong ETag for document metadata
+      schema: { type: string, example: "\"c0a8012b:1-DAF\"" }
+    WeakETag:
+      description: Weak ETag (e.g., file content)
+      schema: { type: string, example: "W/\"af-1a2b3c\"" }
+    XRequestId:
+      description: Correlation id of the request
+      schema: { type: string, example: "8a4a3b50f2bf4b6e8e5bcd9b39d1f8a3" }
+
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    shareId:
+      name: shareId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    workspaceIdPath:
+      name: workspaceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    workspaceIdQuery:
+      name: workspaceId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    q:
+      name: q
+      in: query
+      required: false
+      schema: { type: string }
+      description: Free-text query
+    page:
+      name: page
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+    pageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        enum: [10, 20, 50]
+        default: 20
+      description: Number of items per page (default 20; max 100 supported server-side).
+    sort:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [relevance, uploadDateDesc, uploadDateAsc]
+        default: relevance
+    fileType:
+      name: fileType
+      in: query
+      required: false
+      schema: { type: string }
+    sizeMin:
+      name: sizeMin
+      in: query
+      required: false
+      schema: { type: integer, format: int64, minimum: 0 }
+    sizeMax:
+      name: sizeMax
+      in: query
+      required: false
+      schema: { type: integer, format: int64, minimum: 0 }
+    uploadDateFrom:
+      name: uploadDateFrom
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    uploadDateTo:
+      name: uploadDateTo
+      in: query
+      required: false
+      schema: { type: string, format: date-time }
+    hasSummary:
+      name: hasSummary
+      in: query
+      required: false
+      schema: { type: boolean }
+    hasError:
+      name: hasError
+      in: query
+      required: false
+      schema: { type: boolean }
+    uploaderId:
+      name: uploaderId
+      in: query
+      required: false
+      schema: { type: string, format: uuid }
+    approvalStatus:
+      name: approvalStatus
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [PENDING, APPROVED, REJECTED]
+    shared:
+      name: shared
+      in: query
+      required: false
+      schema: { type: boolean }
+    fromDate:
+      name: from
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    toDate:
+      name: to
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    ifMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema: { type: string }
+      description: Strong ETag of the resource to guard against concurrent updates.
+    sharePassword:
+      name: X-Share-Password
+      in: header
+      required: false
+      schema: { type: string }
+      description: Required for guest access when using a share token.
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Forbidden
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: Conflict
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    PreconditionFailed:
+      description: Precondition failed (ETag mismatch)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    TooLarge:
+      description: Payload too large
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    ServerError:
+      description: Server error
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotImplemented:
+      description: Not Implemented (feature stub)
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC7807 problem+json with trace id
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        traceId: { type: string }
+      required: [title, status]
+    DocumentRef:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        filename: { type: string }
+        title: { type: string }
+      required: [id, filename]
+    Document:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        filename: { type: string, description: "Original filename (sanitized for display only)" }
+        storedName: { type: string, description: "Server-safe stored name" }
+        title: { type: string }
+        description: { type: string }
+        tags:
+          type: array
+          items:
+            type: string
+            pattern: "^[A-Za-z0-9:_-]{1,64}$"
+        size: { type: integer, format: int64 }
+        fileType: { type: string, description: "MIME type" }
+        language: { type: string, enum: [de, en] }
+        uploadDate: { type: string, format: date-time }
+        uploadedBy: { $ref: "#/components/schemas/UserRef" }
+        workspaceId: { type: string, format: uuid, nullable: true }
+        customMetadata:
+          type: object
+          additionalProperties:
+            type: string
+        hasSummary: { type: boolean }
+        hasError: { type: boolean }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        processing: { $ref: "#/components/schemas/ProcessingStatus" }
+        sharesCount: { type: integer, minimum: 0 }
+        etag:
+          type: string
+          description: Strong ETag for this metadata representation
+      required: [id, filename, size, fileType, uploadDate, uploadedBy, processing]
+    DocumentPatch:
+      type: object
+      description: JSON Merge Patch for Document metadata
+      properties:
+        title: 
+          type: string
+          nullable: true
+        description: 
+          type: string
+          nullable: true
+        tags:
+          type: object
+          nullable: true
+          items:
+            type: string
+            pattern: "^[A-Za-z0-9:_-]{1,64}$"
+        workspaceId:
+          type: string
+          nullable: true
+          format: uuid
+        customMetadata:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        language: 
+          type: string
+          nullable: true
+          enum: [de, en]
+    DocumentPage:
+      type: object
+      properties:
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, enum: [10,20,50] }
+        totalItems: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+      required: [page, pageSize, totalItems, totalPages, items]
+    ProcessingStatus:
+      type: object
+      properties:
+        ocr: { $ref: "#/components/schemas/ProcessingStepStatus" }
+        summary: { $ref: "#/components/schemas/ProcessingStepStatus" }
+        index: { $ref: "#/components/schemas/ProcessingStepStatus" }
+      required: [ocr, summary, index]
+    ProcessingStepStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [NOT_PROCESSED, QUEUED, RUNNING, SUCCEEDED, FAILED]
+        engine:
+          type: string
+          description: Processing engine or provider (e.g., tesseract, gemini-pro)
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        startedAt: { type: string, format: date-time, nullable: true }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        retryCount: { type: integer, minimum: 0, default: 0 }
+        errorMessage: { type: string, nullable: true }
+      required: [status, retryCount]
+    Summary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        createdBy: { $ref: "#/components/schemas/UserRef" }
+        provider: { type: string, example: "gemini-1.5-pro" }
+        model: { type: string, example: "gemini-1.5-pro" }
+        lang: { type: string, enum: [de, en] }
+        lengthHint: { type: string, enum: [short, medium, long] }
+        format: { type: string, enum: [markdown, plain], default: markdown }
+        content: { type: string }
+      required: [id, documentId, createdAt, createdBy, lang, lengthHint, format, content]
+    UploadResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              filename: { type: string }
+              message: { type: string }
+      required: [documents, errors]
+    VirusScanResult:
+      type: object
+      description: Optional security scan result (non-blocking; informational)
+      properties:
+        service: { type: string, example: "virustotal" }
+        status:
+          type: string
+          enum: [PASSED, FAILED, SKIPPED, UNKNOWN]
+        details:
+          type: string
+          nullable: true
+    Share:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        createdBy: { $ref: "#/components/schemas/UserRef" }
+        tokenPreview: { type: string, description: "Masked preview of token for UI display" }
+        requiresPassword: { type: boolean, default: true }
+        expiresAt: { type: string, format: date-time, nullable: true }
+        permissions:
+          type: array
+          items:
+            type: string
+            enum: [view, download]
+      required: [id, documentId, createdAt, createdBy, requiresPassword, permissions]
+    ShareCreate:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 8
+          description: Required password to be provided via `X-Share-Password` header by guests.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        permissions:
+          type: array
+          description: Allowed actions for guests
+          items:
+            type: string
+            enum: [view, download]
+          default: [view]
+      required: [password]
+    Workspace:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        owners:
+          type: array
+          items: { $ref: "#/components/schemas/UserRef" }
+        membersCount: { type: integer, minimum: 0 }
+      required: [id, name, createdAt, owners]
+    WorkspaceCreate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string, nullable: true }
+        owners:
+          type: array
+          items: { type: string, format: uuid }
+      required: [name]
+    WorkspacePatch:
+      type: object
+      description: JSON Merge Patch for workspace
+      properties:
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        owners:
+          type: array
+          nullable: true
+          items: { type: string, format: uuid }
+    WorkspaceMember:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/UserRef" }
+        role:
+          type: string
+          enum: [owner, contributor, viewer]
+      required: [user, role]
+    WorkspaceMemberCreate:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        role:
+          type: string
+          enum: [owner, contributor, viewer]
+      required: [userId, role]
+    AccessStatsPoint:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        views: { type: integer, format: int64 }
+        downloads: { type: integer, format: int64 }
+      required: [date, views, downloads]
+    AccessStatsSeries:
+      type: object
+      properties:
+        documentId: { type: string, format: uuid }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/AccessStatsPoint" }
+      required: [documentId, points]
+    AuditLogEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        actor: { $ref: "#/components/schemas/UserRef" }
+        action: { type: string, example: "document.view" }
+        targetId: { type: string, format: uuid }
+        level: { type: string, enum: [minimal, normal, excessive] }
+        meta:
+          type: object
+          additionalProperties: true
+      required: [id, timestamp, actor, action]
+    UserRef:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+      required: [id]
+
+    ApprovalRequest:
+      type: object
+      description: Optional approval workflow entity (feature-flagged; may return 501)
+      properties:
+        id: { type: string, format: uuid }
+        documentId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        createdBy: { $ref: "#/components/schemas/UserRef" }
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              approver: { $ref: "#/components/schemas/UserRef" }
+              decidedAt: { type: string, format: date-time, nullable: true }
+              decision: { type: string, enum: [APPROVED, REJECTED], nullable: true }
+              comment: { type: string, nullable: true }
+      required: [id, documentId, createdAt, createdBy, status]
+
+security:
+  - bearerAuth: []
