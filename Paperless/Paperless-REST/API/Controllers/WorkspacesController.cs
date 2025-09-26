@@ -14,9 +14,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
-{ 
+{
     /// <summary>
-    /// 
+    /// Organize documents into workspaces and manage membership.
     /// </summary>
     [ApiController]
     //public class WorkspacesController : ControllerBase

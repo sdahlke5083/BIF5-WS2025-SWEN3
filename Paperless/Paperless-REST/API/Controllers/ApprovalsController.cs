@@ -12,13 +12,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
-{ 
+{
     /// <summary>
-    /// 
+    /// Approval workflows for documents. (Optional if time)
     /// </summary>
     [ApiController]
     //public class ApprovalsOptionalController : ControllerBase
-    public class ApprovalsOptionalController : BaseApiController
+    public class ApprovalsController : BaseApiController
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 

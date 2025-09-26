@@ -13,9 +13,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
-{ 
+{
     /// <summary>
-    /// 
+    /// Inspect processing status and trigger re-processing actions.
     /// </summary>
     [ApiController]
     //public class ProcessingController : ControllerBase

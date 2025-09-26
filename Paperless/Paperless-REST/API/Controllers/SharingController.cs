@@ -14,9 +14,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
-{ 
+{
     /// <summary>
-    /// 
+    /// Create and manage password-protected share links for guests.
     /// </summary>
     [ApiController]
     //public class SharingController : ControllerBase

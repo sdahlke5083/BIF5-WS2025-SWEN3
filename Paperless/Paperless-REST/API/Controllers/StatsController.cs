@@ -13,9 +13,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
-{ 
+{
     /// <summary>
-    /// 
+    /// Access statistics (daily aggregates) for documents.
     /// </summary>
     [ApiController]
     //public class StatsController : ControllerBase

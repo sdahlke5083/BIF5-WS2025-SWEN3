@@ -22,9 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DAL\" />
     <Folder Include="BLL\" />
-    <Folder Include="API\Models"/>
+    <Folder Include="API\Models" />
   </ItemGroup>
 
 </Project>

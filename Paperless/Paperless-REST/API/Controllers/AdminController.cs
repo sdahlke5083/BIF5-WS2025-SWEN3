@@ -10,11 +10,12 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 
 namespace API.Controllers
-{ 
+{
     /// <summary>
-    /// 
+    /// Health, readiness, diagnostics, and audit logs.
     /// </summary>
     [ApiController]
     //public class AdminController : ControllerBase
@@ -49,11 +50,7 @@ namespace API.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public virtual IActionResult Health()
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            return Ok(new { status = "OK" });
         }
 
         /// <summary>
