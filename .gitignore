@@ -419,3 +419,6 @@ FodyWeavers.xsd
 
 # Docker container maped volumes folder
 .data/
+
+# Angabe Folder
+Angabe/
