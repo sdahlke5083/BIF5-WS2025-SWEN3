@@ -1,12 +1,20 @@
 using Microsoft.OpenApi.Models;
+using BLL.Uploads;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 var services = builder.Services;
+
 // Add services to the container.
 services.AddControllers();
+
 // Add Services for Swagger UI
 services.AddEndpointsApiExplorer();
+
+// Add the upload service
+services.AddScoped<IUploadService, UploadService>();
+
+// Add Swagger generation with custom settings
 services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("Paperless", new OpenApiInfo
