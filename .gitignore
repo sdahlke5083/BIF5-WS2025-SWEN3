@@ -422,3 +422,5 @@ FodyWeavers.xsd
 
 # Angabe Folder
 Angabe/
+Angabe/**
+
