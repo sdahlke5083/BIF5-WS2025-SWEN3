@@ -23,10 +23,14 @@ services.AddDbContext<PostgressDbContext>(o =>
 });
 
 // Add the Upload Service
-services.Configure<UploadService>(builder.Configuration.GetSection("Paperless-Filepath")); // configure the Path property from appsettings.json
 services.AddScoped<IUploadService>(sp =>
-    sp.GetRequiredService<IOptions<UploadService>>().Value // .Value gives the configured UploadService instance
-);
+{
+    var repo = sp.GetRequiredService<IDocumentRepository>();
+    var config = sp.GetRequiredService<IConfiguration>();
+    var service = new UploadService(repo);
+    service.Path = config.GetSection("Paperless-Filepath").Value ?? ".data/Files"; //TODO: fix this
+    return service;
+});
 
 // Add the repositories
 services.AddScoped<IDocumentRepository, DocumentRepository>();
