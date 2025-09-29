@@ -19,6 +19,7 @@ namespace Paperless.REST.API.Controllers
         {
             _uploadService = uploadService;
         }
+
         /// <summary>
         /// Upload one or more files and create document records
         /// </summary>
@@ -77,7 +78,7 @@ namespace Paperless.REST.API.Controllers
             //TODO: Change the data returned
 
             _logger.Info($"Number of Uploads accepted: {validation.AcceptedCount} file(s)");
-            return Ok(new { accepted = validation.AcceptedCount }); // Return HTTP 200
+            return Ok(new { accepted = validation.AcceptedCount, guids = validation.DocumentIds }); // Return HTTP 200
         }
     }
 }

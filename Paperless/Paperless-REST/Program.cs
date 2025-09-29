@@ -1,16 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Paperless.REST.BLL.Uploads;
-using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL;
+using Paperless.REST.DAL.DbContexts;
+using Paperless.REST.DAL.Repositories;
+using System.Reflection;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 var services = builder.Services;
 
 // Add services to the container.
-services.AddControllers();
-services.AddDbContext<PostgressDbContext>( o =>
+services.AddControllers().AddJsonOptions(x =>
+{
+    x.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+});
+services.AddDbContext<PostgressDbContext>(o =>
 {
     o.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection"));
     o.UseCamelCaseNamingConvention();
@@ -18,6 +23,9 @@ services.AddDbContext<PostgressDbContext>( o =>
 
 // Add the endpoint services
 services.AddScoped<IUploadService, UploadService>();
+
+// Add the repositories
+services.AddScoped<IDocumentRepository, DocumentRepository>();
 
 // Add Development Services
 services.AddEndpointsApiExplorer();
@@ -56,6 +64,7 @@ services.AddSwaggerGen(options =>
         Description = "Local development (HTTPS/TLS)",
         Url = "https://localhost:8081/",
     });
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory,$"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
 });
 
 
@@ -66,12 +75,13 @@ if (app.Environment.IsDevelopment())
     // Add the SwaggerUI for development 
     app.UseStaticFiles();
     app.UseSwagger();
-    app.UseSwaggerUI( options =>
+    app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/Paperless/swagger.json", "Paperless-REST");
         options.RoutePrefix = string.Empty;
         options.InjectStylesheet("/assets/css/fhtw-swagger.css");
     });
+
     app.ApplyMigrations();
 }
 
