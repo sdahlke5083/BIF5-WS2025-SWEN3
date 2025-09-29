@@ -1,5 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Paperless.REST.BLL.Uploads;
+using Paperless.REST.DAL.DbContexts;
+using Paperless.REST.DAL;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -7,16 +10,20 @@ var services = builder.Services;
 
 // Add services to the container.
 services.AddControllers();
+services.AddDbContext<PostgressDbContext>( o =>
+{
+    o.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection"));
+    o.UseCamelCaseNamingConvention();
+});
 
-// Add Services for Swagger UI
-services.AddEndpointsApiExplorer();
-
-// Add the upload service
+// Add the endpoint services
 services.AddScoped<IUploadService, UploadService>();
 
-// Add Swagger generation with custom settings
+// Add Development Services
+services.AddEndpointsApiExplorer();
 services.AddSwaggerGen(options =>
 {
+    // Add some custom settings
     options.SwaggerDoc("Paperless", new OpenApiInfo
     {
         Version = "1.0.0",
@@ -65,6 +72,7 @@ if (app.Environment.IsDevelopment())
         options.RoutePrefix = string.Empty;
         options.InjectStylesheet("/assets/css/fhtw-swagger.css");
     });
+    app.ApplyMigrations();
 }
 
 app.UseHttpsRedirection();

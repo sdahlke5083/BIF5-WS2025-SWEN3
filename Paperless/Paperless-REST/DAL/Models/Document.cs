@@ -1,37 +1,35 @@
-﻿namespace Paperless.REST.DAL.Models
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Paperless.REST.DAL.Models
 {
+    [Index(nameof(DeletedAt))]
     public sealed class Document
     {
+        [Key]
+        [DefaultValue("gen_random_uuid()")]
         public Guid Id { get; set; }
-        public DateTimeOffset UploadedAt { get; set; }
-        public Guid? UploadedByUserId { get; set; }
-        public User? UploadedByUser { get; set; }
-        public string OriginalFileName { get; set; } = default!;
-        public long SizeBytes { get; set; }
 
-        // Content type lookup FK (int in DB) + enum in code
-        public int ContentTypeId { get; set; }
-        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
-        public DocumentContentType ContentType
-        {
-            get => (DocumentContentType)ContentTypeId;
-            set => ContentTypeId = (int)value;
-        }
-
-        // Fast pointer to current metadata version
+        // Versioning
         public int CurrentMetadataVersion { get; set; } = 1;
+        public int CurrentFileVersion { get; set; } = 1;
 
         // Soft delete
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public DateTimeOffset? DeletedAt { get; set; }
         public Guid? DeletedByUserId { get; set; }
-        public User? DeletedByUser { get; set; }
 
+        // workspaces
         public Guid? WorkspaceId { get; set; }
-        public Workspace? Workspace { get; set; }
 
-        // Navs
-        public ICollection<DocumentMetadata> MetadataVersions { get; set; } = new List<DocumentMetadata>();
+        // EF Core references
+        public User? DeletedByUser { get; set; }
+        public Workspace? Workspace { get; set; }
         public ProcessingStatus ProcessingStatus { get; set; } = new();
+        public ICollection<DocumentMetadata> MetadataVersions { get; set; } = new List<DocumentMetadata>();
+        public ICollection<DocumentTag> DocumentTags { get; set; } = new List<DocumentTag>();
         public ICollection<FileVersion> FileVersions { get; set; } = new List<FileVersion>();
         public ICollection<Summary> Summaries { get; set; } = new List<Summary>();
     }

@@ -1,26 +1,32 @@
-﻿namespace Paperless.REST.DAL.Models
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Paperless.REST.DAL.Models
 {
+    [Index(nameof(Title))]
+    [Index(nameof(DocumentId), nameof(CreatedAt))]
     public sealed class DocumentMetadata
     {
+        // Composite PK (DocumentId + Version)
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public Guid DocumentId { get; set; }
-        public Document Document { get; set; } = default!;
-        public int Version { get; set; }                              // 1..N
+        public int Version { get; set; }
+
+        // Upload info
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public DateTimeOffset CreatedAt { get; set; }
         public Guid? CreatedByUserId { get; set; }
-        public User? CreatedByUser { get; set; }
 
+        // basic metadata
+        [MaxLength(512)]
         public string? Title { get; set; }
         public string? Description { get; set; }
+        public string? LanguageCode { get; set; }
 
-        // Language lookup FK (nullable) + enum in code
-        public int? LanguageId { get; set; }
-        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
-        public DocumentLanguage? Language
-        {
-            get => LanguageId.HasValue ? (DocumentLanguage)LanguageId.Value : null;
-            set => LanguageId = value.HasValue ? (int)value.Value : null;
-        }
-
-        public ICollection<DocumentMetadataTag> Tags { get; set; } = new List<DocumentMetadataTag>();
+        // EF Core reference
+        public User? CreatedByUser { get; set; }
+        public DocumentLanguage? DocumentLanguage { get; set; }
+        public Document Document { get; set; } = default!;
     }
 }
