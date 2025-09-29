@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Paperless.REST.DAL.Models;
-using System.Text;
 
 namespace Paperless.REST.DAL.DbContexts
 {
