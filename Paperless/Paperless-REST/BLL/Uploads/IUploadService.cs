@@ -11,5 +11,6 @@ namespace Paperless.REST.BLL.Uploads
             IReadOnlyCollection<UploadFile> files,  // files to be uploaded
             string? metadataRaw, 
             CancellationToken cancelToken = default);   // optional cancellation token
+        public string Path { get; set; }    // file path
     }
 }

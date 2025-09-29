@@ -3,6 +3,7 @@ using Microsoft.OpenApi.Models;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL;
+using Microsoft.Extensions.Options;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -16,8 +17,11 @@ services.AddDbContext<PostgressDbContext>( o =>
     o.UseCamelCaseNamingConvention();
 });
 
-// Add the endpoint services
-services.AddScoped<IUploadService, UploadService>();
+// Add the Upload Service
+services.Configure<UploadService>(builder.Configuration.GetSection("Paperless-Filepath")); // configure the Path property from appsettings.json
+services.AddScoped<IUploadService>(sp =>
+    sp.GetRequiredService<IOptions<UploadService>>().Value // .Value gives the configured UploadService instance
+);
 
 // Add Development Services
 services.AddEndpointsApiExplorer();

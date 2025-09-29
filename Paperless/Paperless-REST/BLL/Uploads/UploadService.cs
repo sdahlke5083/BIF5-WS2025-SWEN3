@@ -8,6 +8,8 @@ namespace Paperless.REST.BLL.Uploads
     /// </summary>
     public sealed class UploadService : IUploadService
     {
+        public string Path { get; set; } = string.Empty;
+
         public Task<UploadValidationResult> ValidateAsync(
             IReadOnlyCollection<UploadFile> files,  // files to be uploaded
             string? metadataRaw,
