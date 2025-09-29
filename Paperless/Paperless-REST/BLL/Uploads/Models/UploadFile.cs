@@ -1,4 +1,4 @@
-﻿namespace BLL.Uploads.Models
+﻿namespace Paperless.REST.BLL.Uploads.Models
 {
     /// <summary>
     /// Represents a file upload with metadata including filename, content type, and file size.

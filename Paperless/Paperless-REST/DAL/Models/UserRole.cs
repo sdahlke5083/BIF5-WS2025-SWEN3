@@ -1,4 +1,4 @@
-﻿namespace DAL.Models
+﻿namespace Paperless.REST.DAL.Models
 {
     public sealed class UserRole
     {

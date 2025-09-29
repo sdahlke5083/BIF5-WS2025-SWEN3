@@ -1,6 +1,6 @@
-﻿using BLL.Uploads.Models;
+﻿using Paperless.REST.BLL.Uploads.Models;
 
-namespace BLL.Uploads
+namespace Paperless.REST.BLL.Uploads
 {
     /// <summary>
     /// Buissness logic for validating uploaded files and metadata

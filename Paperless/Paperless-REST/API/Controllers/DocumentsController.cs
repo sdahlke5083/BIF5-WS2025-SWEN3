@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
-namespace API.Controllers
+namespace Paperless.REST.API.Controllers
 {
     /// <summary>
     /// Retrieve and manage documents and their metadata.

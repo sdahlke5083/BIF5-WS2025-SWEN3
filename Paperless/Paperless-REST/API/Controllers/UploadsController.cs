@@ -10,12 +10,12 @@
 
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using BLL.Uploads;
 using BLL.Uploads.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Paperless.REST.BLL.Uploads;
 
-namespace API.Controllers
+namespace Paperless.REST.API.Controllers
 {
     /// <summary>
     /// Create new documents by uploading one or more files.

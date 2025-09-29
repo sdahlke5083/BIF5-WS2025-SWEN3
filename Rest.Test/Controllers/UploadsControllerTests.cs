@@ -1,11 +1,11 @@
 ﻿using System.Text;
 using System.Text.Json;
 using API.Controllers;
-using BLL.Uploads;
-using BLL.Uploads.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using Paperless.REST.BLL.Uploads;
+using Paperless.REST.BLL.Uploads.Models;
 
 namespace Rest.Test.Controllers
 {

@@ -12,7 +12,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace API.Controllers
+namespace Paperless.REST.API.Controllers
 {
     /// <summary>
     /// Access statistics (daily aggregates) for documents.

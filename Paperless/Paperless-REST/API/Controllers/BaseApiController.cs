@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 
-namespace API.Controllers
+namespace Paperless.REST.API.Controllers
 {
     public abstract class BaseApiController : ControllerBase
     {

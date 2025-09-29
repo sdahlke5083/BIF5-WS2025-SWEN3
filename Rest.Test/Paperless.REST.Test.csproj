@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Paperless\Paperless-REST\Paperless-REST.csproj" />
+    <ProjectReference Include="..\Paperless\Paperless-REST\Paperless.REST.csproj" />
   </ItemGroup>
 
   <ItemGroup>

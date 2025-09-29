@@ -1,8 +1,8 @@
-﻿using DAL.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Paperless.REST.DAL.Models;
 using System.Text;
 
-namespace DAL.DbContexts
+namespace Paperless.REST.DAL.DbContexts
 {
     public class PostgressDbContext : DbContext
     {

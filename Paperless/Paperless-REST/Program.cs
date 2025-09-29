@@ -1,5 +1,5 @@
 using Microsoft.OpenApi.Models;
-using BLL.Uploads;
+using Paperless.REST.BLL.Uploads;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

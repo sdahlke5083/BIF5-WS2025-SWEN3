@@ -13,7 +13,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace API.Controllers
+namespace Paperless.REST.API.Controllers
 {
     /// <summary>
     /// Create and manage password-protected share links for guests.

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace BLL.Uploads.Models
+namespace Paperless.REST.BLL.Uploads.Models
 {
     /// <summary>
     /// Validation result for uploaded files and metadata

@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
-namespace API.Controllers
+namespace Paperless.REST.API.Controllers
 {
     /// <summary>
     /// Health, readiness, diagnostics, and audit logs.
