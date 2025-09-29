@@ -417,4 +417,11 @@ FodyWeavers.xsd
 *.msm
 *.msp
 
+
+# Docker container maped volumes folder
+.data/
+
+# Angabe Folder
 Angabe/
+Angabe/**
+
