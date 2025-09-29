@@ -78,7 +78,23 @@ namespace Paperless.REST.API.Controllers
             //TODO: Change the data returned
 
             _logger.Info($"Number of Uploads accepted: {validation.AcceptedCount} file(s)");
-            return Ok(new { accepted = validation.AcceptedCount, guids = validation.DocumentIds }); // Return HTTP 200
+            var basePath = _uploadService.Path;
+            Directory.CreateDirectory(basePath); // Ensure the directory exists
+            var saved = new List<string>();
+            foreach (var formFile in files)
+            {
+                if (formFile.Length > 0)
+                {
+                    var targetPath = Path.Combine(basePath, formFile.FileName);
+                    await using (var stream = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    {
+                        await formFile.CopyToAsync(stream, cancelToken);
+                    }
+                    saved.Add(Path.GetFileName(targetPath));
+                    _logger.Info($"Saved file '{formFile.FileName}' as '{targetPath}'");
+                }
+            }
+            return Ok(new { accepted = validation.AcceptedCount , saved, guids = validation.DocumentIds }); // Return HTTP 200
         }
     }
 }

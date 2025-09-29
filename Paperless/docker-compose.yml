@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 name: paperless-swen3
 
 services:
@@ -8,6 +8,9 @@ services:
     build:
       context: .
       dockerfile: Paperless-REST/Dockerfile
+    user: "0:0"
+    volumes:
+      - ./.data/Files:/app/.data/Files:rw
 
   paperless-db:
     image: postgres:15

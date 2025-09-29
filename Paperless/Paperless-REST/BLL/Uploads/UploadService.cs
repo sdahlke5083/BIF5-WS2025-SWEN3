@@ -10,6 +10,8 @@ namespace Paperless.REST.BLL.Uploads
     /// </summary>
     public sealed class UploadService : IUploadService
     {
+        public string Path { get; set; } = string.Empty;
+
         private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         private readonly IDocumentRepository _documentRepository;
@@ -25,6 +27,7 @@ namespace Paperless.REST.BLL.Uploads
             CancellationToken cancelToken = default)    // optional cancellation token
         {
             var result = new UploadValidationResult();
+
             // must have atleast one file
             if (files is null || files.Count == 0)
             {
