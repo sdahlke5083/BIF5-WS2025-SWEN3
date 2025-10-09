@@ -8,19 +8,16 @@ services:
     build:
       context: .
       dockerfile: Paperless-REST/Dockerfile
-    user: "0:0"
     volumes:
-      - ./.data/Files:/app/.data/Files:rw
+      - ./.data/Files:/.data/Files:rw
     depends_on:
-      paperless-db:
-        condition: service_healthy
-  
+      - paperless-db
 
   paperless.ui:
     image: ${DOCKER_REGISTRY-}paperlessui
     container_name: paperless-ui
     build:
-      context: .
+      context: . 
       dockerfile: ../Paperless.UI/Dockerfile
     depends_on:
       - paperless-rest
@@ -36,11 +33,12 @@ services:
     volumes:
       - ./.data/paperless-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U paperless"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-  
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   paperless-adminer:
     image: adminer:5.4.0
     container_name: paperless-adminer
@@ -52,7 +50,6 @@ services:
       - ADMINER_DEFAULT_DRIVER=pgsql
       - ADMINER_DESIGN=dracula
     depends_on:
-      paperless-db:
-        condition: service_healthy
+      - paperless-db
 
 
