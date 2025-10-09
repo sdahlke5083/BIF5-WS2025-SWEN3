@@ -1,4 +1,4 @@
-﻿version: '3.8'
+version: '3.8'
 name: paperless-swen3
 
 services:
@@ -11,6 +11,19 @@ services:
     user: "0:0"
     volumes:
       - ./.data/Files:/app/.data/Files:rw
+    depends_on:
+      paperless-db:
+        condition: service_healthy
+  
+
+  paperless.ui:
+    image: ${DOCKER_REGISTRY-}paperlessui
+    container_name: paperless-ui
+    build:
+      context: .
+      dockerfile: ../Paperless.UI/Dockerfile
+    depends_on:
+      - paperless-rest
 
   paperless-db:
     image: postgres:15
@@ -22,6 +35,11 @@ services:
       - POSTGRES_PASSWORD=paperless
     volumes:
       - ./.data/paperless-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
   
   paperless-adminer:
     image: adminer:5.4.0
@@ -33,3 +51,8 @@ services:
       - ADMINER_DEFAULT_SERVER=paperless-db
       - ADMINER_DEFAULT_DRIVER=pgsql
       - ADMINER_DESIGN=dracula
+    depends_on:
+      paperless-db:
+        condition: service_healthy
+
+
