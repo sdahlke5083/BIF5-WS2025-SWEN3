@@ -2,27 +2,27 @@ version: '3.8'
 name: paperless-swen3
 
 services:
-  paperless-rest:
+  paperless.rest:
     image: ${DOCKER_REGISTRY-}paperlessrest
     container_name: paperless-rest
     build:
       context: .
-      dockerfile: Paperless-REST/Dockerfile
+      dockerfile: Paperless.REST/Dockerfile
     volumes:
       - ./.data/Files:/.data/Files:rw
     depends_on:
-      - paperless-db
+      - paperless.db
 
   paperless.ui:
     image: ${DOCKER_REGISTRY-}paperlessui
     container_name: paperless-ui
     build:
       context: . 
-      dockerfile: ../Paperless.UI/Dockerfile
+      dockerfile: Paperless.UI/Dockerfile
     depends_on:
-      - paperless-rest
+      - paperless.rest
 
-  paperless-db:
+  paperless.db:
     image: postgres:15
     restart: unless-stopped
     container_name: paperless-db
@@ -39,7 +39,7 @@ services:
       retries: 10
       start_period: 30s
 
-  paperless-adminer:
+  paperless.adminer:
     image: adminer:5.4.0
     container_name: paperless-adminer
     restart: unless-stopped
@@ -50,6 +50,6 @@ services:
       - ADMINER_DEFAULT_DRIVER=pgsql
       - ADMINER_DESIGN=dracula
     depends_on:
-      - paperless-db
+      - paperless.db
 
 

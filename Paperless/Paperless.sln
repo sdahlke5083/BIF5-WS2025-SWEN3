@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36408.4
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.REST", "Paperless-REST\Paperless.REST.csproj", "{BA4C554D-6106-4A3D-902D-EFAD066E98B0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.REST", "Paperless.REST\Paperless.REST.csproj", "{BA4C554D-6106-4A3D-902D-EFAD066E98B0}"
 EndProject
 Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{81DDED9D-158B-E303-5F62-77A2896D2A5A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.REST.Test", "..\Rest.Test\Paperless.REST.Test.csproj", "{EB53BB79-A201-4C7C-B1B7-572F5B2EF271}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.REST.Test", "Rest.Test\Paperless.REST.Test.csproj", "{EB53BB79-A201-4C7C-B1B7-572F5B2EF271}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.UI", "..\Paperless.UI\Paperless.UI.csproj", "{36E28DF9-B782-451B-B2CA-4C600CA466CD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.UI", "Paperless.UI\Paperless.UI.csproj", "{36E28DF9-B782-451B-B2CA-4C600CA466CD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

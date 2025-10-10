@@ -85,7 +85,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        options.SwaggerEndpoint("/swagger/Paperless/swagger.json", "Paperless-REST");
+        options.SwaggerEndpoint("/swagger/Paperless/swagger.json", "Paperless");
         options.RoutePrefix = string.Empty;
         options.InjectStylesheet("/assets/css/fhtw-swagger.css");
     });
