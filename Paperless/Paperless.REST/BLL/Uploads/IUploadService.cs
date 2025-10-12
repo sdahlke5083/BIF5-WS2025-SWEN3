@@ -3,7 +3,7 @@
 namespace Paperless.REST.BLL.Uploads
 {
     /// <summary>
-    /// Buissness logic for validating uploaded files and metadata
+    /// Business logic for validating uploaded files and metadata
     /// </summary>
     public interface IUploadService
     {
