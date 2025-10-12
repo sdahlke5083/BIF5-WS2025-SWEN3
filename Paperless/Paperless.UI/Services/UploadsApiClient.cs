@@ -30,7 +30,7 @@ namespace Paperless.UI.Services
                     fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
                     content.Add(fileContent, "files", file.Name);
 
-                    // Metadaten für jede Datei sammeln
+                    // Metadaten fÃ¼r jede Datei sammeln
                     metadataFiles[file.Name] = new
                     {
                         title = file.Name,
@@ -60,7 +60,8 @@ namespace Paperless.UI.Services
             catch (HttpRequestException ex)
             {
                 // More detailed error information
-                throw new Exception($"API connection error: {ex.Message} (StatusCode: {ex.StatusCode})\nEx: {ex.Data["Details"]} ", ex);
+                var details = ex.Data.Contains("Details") ? ex.Data["Details"] : "N/A";
+                throw new Exception($"API connection error: {ex.Message} (StatusCode: {ex.StatusCode})\nEx: {details} ", ex);
             }
         }
     }
