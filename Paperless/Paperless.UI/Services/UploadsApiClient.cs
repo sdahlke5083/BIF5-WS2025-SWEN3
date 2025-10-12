@@ -23,22 +23,25 @@ namespace Paperless.UI.Services
             {
                 using var content = new MultipartFormDataContent();
 
-                await using var stream = file.OpenReadStream(long.MaxValue, ct);
-                var fileContent = new StreamContent(stream);
-                fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
+                var metadataFiles = new Dictionary<string, object?>();
 
-                // The controller expects parameter name "files" (a collection). Provide the filename so server can map metadata.
-                content.Add(fileContent, "files", file.Name);
+                    await using var stream = file.OpenReadStream(long.MaxValue, ct);
+                    var fileContent = new StreamContent(stream);
+                    fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
+                    content.Add(fileContent, "files", file.Name);
 
-                // Build minimal metadata mapping original filename to an object the API expects.
-                var metadataObj = new Dictionary<string, object?>
-                {
-                    [file.Name] = new
+                    // Metadaten für jede Datei sammeln
+                    metadataFiles[file.Name] = new
                     {
                         title = file.Name,
-                        tags = Array.Empty<string>(),
-                        lang = "en"
-                    }
+                        description = file.Name,
+                        languagecode = "en"
+                    };
+
+                // Metadaten-Objekt im erwarteten Format
+                var metadataObj = new Dictionary<string, object?>
+                {
+                    ["files"] = metadataFiles
                 };
 
                 var metadataJson = JsonSerializer.Serialize(metadataObj);
@@ -46,7 +49,7 @@ namespace Paperless.UI.Services
                 content.Add(metadataContent, "metadata");
 
                 // Use leading slash to match the controller's route attribute [Route("/v1/uploads")]
-                var response = await _http.PostAsync("/v1/uploads", content, ct);
+                var response = await _http.PostAsync("/v1/uploads", content, CancellationToken.None);
                 response.EnsureSuccessStatusCode();
 
                 var payload = await response.Content.ReadAsStringAsync(ct);

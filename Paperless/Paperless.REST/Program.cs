@@ -28,7 +28,7 @@ services.AddScoped<IUploadService>(sp =>
     var repo = sp.GetRequiredService<IDocumentRepository>();
     var config = sp.GetRequiredService<IConfiguration>();
     var service = new UploadService(repo);
-    service.Path = config.GetSection("Paperless-Filepath").Value ?? ".data/Files"; //TODO: fix this
+    service.Path = config.GetSection("Paperless-Filepath").Value ?? "/.data/Files"; //TODO: fix this
     return service;
 });
 
