@@ -7,8 +7,7 @@ namespace Paperless.REST.API.Controllers
     /// Access statistics (daily aggregates) for documents.
     /// </summary>
     [ApiController]
-    //public class StatsController : ControllerBase
-    public class StatsController : BaseApiController
+    public class StatsController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -25,11 +24,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(AccessStatsSeries))]
         public virtual IActionResult GetDocumentStats([FromRoute (Name = "id")][Required]Guid id, [FromQuery (Name = "from")]DateOnly? from, [FromQuery (Name = "to")]DateOnly? to)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -45,11 +41,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(GetTopStats200Response))]
         public virtual IActionResult GetTopStats([FromQuery (Name = "period")]string period, [FromQuery (Name = "metric")]string metric, [FromQuery (Name = "limit")][Range(1, 100)]int? limit)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
     }
 }

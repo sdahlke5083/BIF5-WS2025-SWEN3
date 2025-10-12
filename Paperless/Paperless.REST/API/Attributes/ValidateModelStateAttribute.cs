@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
-namespace Paperless.REST.Attributes
+namespace Paperless.REST.API.Attributes
 {
     /// <summary>
     /// Model state validation attribute

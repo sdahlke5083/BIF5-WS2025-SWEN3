@@ -7,8 +7,7 @@ namespace Paperless.REST.API.Controllers
     /// Inspect processing status and trigger re-processing actions.
     /// </summary>
     [ApiController]
-    //public class ProcessingController : ControllerBase
-    public class ProcessingController : BaseApiController
+    public class ProcessingController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -29,17 +28,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult GetProcessingStatus([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -58,17 +48,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult RedoOcr([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 202 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(202);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -87,17 +68,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult RedoSummary([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 202 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(202);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
     }
 }

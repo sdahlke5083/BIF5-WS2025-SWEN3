@@ -6,8 +6,7 @@ namespace Paperless.REST.API.Controllers
     /// Approval workflows for documents. (Optional if time)
     /// </summary>
     [ApiController]
-    //public class ApprovalsOptionalController : ControllerBase
-    public class ApprovalsController : BaseApiController
+    public class ApprovalsOptionalController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -24,13 +23,8 @@ namespace Paperless.REST.API.Controllers
         [ProducesResponseType(StatusCodes.Status501NotImplemented)]
         public virtual IActionResult ListApprovals()
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 501 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(501, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
     }
 }

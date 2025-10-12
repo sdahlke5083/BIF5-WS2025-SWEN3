@@ -8,8 +8,7 @@ namespace Paperless.REST.API.Controllers
     /// Retrieve and manage documents and their metadata.
     /// </summary>
     [ApiController]
-    //public class DocumentsController : ControllerBase
-    public class DocumentsController : BaseApiController
+    public class DocumentsController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -30,17 +29,8 @@ namespace Paperless.REST.API.Controllers
 
         public virtual IActionResult DeleteDocument([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 204 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(204);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -64,19 +54,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult DownloadFile([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string xSharePassword)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 206 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(206, default);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -98,17 +77,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult GetDocument([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string xSharePassword)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -123,11 +93,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
         public virtual IActionResult ListDeleted([FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -155,11 +122,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
         public virtual IActionResult ListDocuments([FromQuery (Name = "q")]string q, [FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize, [FromQuery (Name = "sort")]string sort, [FromQuery (Name = "fileType")]string fileType, [FromQuery (Name = "sizeMin")]long? sizeMin, [FromQuery (Name = "sizeMax")]long? sizeMax, [FromQuery (Name = "uploadDateFrom")]DateTime? uploadDateFrom, [FromQuery (Name = "uploadDateTo")]DateTime? uploadDateTo, [FromQuery (Name = "hasSummary")]bool? hasSummary, [FromQuery (Name = "hasError")]bool? hasError, [FromQuery (Name = "uploaderId")]Guid? uploaderId, [FromQuery (Name = "workspaceId")]Guid? workspaceId, [FromQuery (Name = "approvalStatus")]string approvalStatus, [FromQuery (Name = "shared")]bool? shared)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -173,11 +137,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(ListSummaries200Response))]
         public virtual IActionResult ListSummaries([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -204,21 +165,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 412, type: typeof(Problem))]
         public virtual IActionResult PatchDocument([FromRoute (Name = "id")][Required]Guid id, [FromBody]JsonElement body, [FromHeader (Name = "If-Match")]string ifMatch)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 400 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(400, default);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-            //TODO: Uncomment the next line to return response 412 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(412, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -237,17 +185,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult PurgeDocument([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 204 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(204);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -266,17 +205,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult RestoreDocument([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 204 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(204);
-            //TODO: Uncomment the next line to return response 401 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(401, default);
-            //TODO: Uncomment the next line to return response 403 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(403, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
     }
 }

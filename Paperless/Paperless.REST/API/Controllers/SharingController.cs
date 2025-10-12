@@ -9,8 +9,7 @@ namespace Paperless.REST.API.Controllers
     /// Create and manage password-protected share links for guests.
     /// </summary>
     [ApiController]
-    //public class SharingController : ControllerBase
-    public class SharingController : BaseApiController
+    public class SharingController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -27,11 +26,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 201, type: typeof(Share))]
         public virtual IActionResult CreateShare([FromRoute (Name = "id")][Required]Guid id, [FromBody]JsonElement body)
         {
-
-            //TODO: Uncomment the next line to return response 201 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(201, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -44,11 +40,8 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         public virtual IActionResult DeleteShare([FromRoute (Name = "shareId")][Required]Guid shareId)
         {
-
-            //TODO: Uncomment the next line to return response 204 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(204);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -64,13 +57,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult GetShare([FromRoute (Name = "shareId")][Required]Guid shareId)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -84,11 +72,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(ListShares200Response))]
         public virtual IActionResult ListShares([FromRoute (Name = "id")][Required]Guid id)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
     }
 }

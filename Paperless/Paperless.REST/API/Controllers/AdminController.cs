@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Paperless.REST.API.Models.BaseResponse;
 using Paperless.REST.API.Models.QueryModels;
-using Paperless.REST.Attributes;
+using Paperless.REST.API.Attributes;
 
 namespace Paperless.REST.API.Controllers
 {
@@ -9,8 +9,7 @@ namespace Paperless.REST.API.Controllers
     /// Health, readiness, diagnostics, and audit logs.
     /// </summary>
     [ApiController]
-    //public class AdminController : ControllerBase
-    public class AdminController : BaseApiController
+    public class AdminController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 

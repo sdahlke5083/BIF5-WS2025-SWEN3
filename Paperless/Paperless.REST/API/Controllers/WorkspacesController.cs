@@ -8,8 +8,7 @@ namespace Paperless.REST.API.Controllers
     /// Organize documents into workspaces and manage membership.
     /// </summary>
     [ApiController]
-    //public class WorkspacesController : ControllerBase
-    public class WorkspacesController : BaseApiController
+    public class WorkspacesController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
@@ -26,11 +25,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 201, type: typeof(WorkspaceMember))]
         public virtual IActionResult AddWorkspaceMember([FromRoute (Name = "workspaceId")][Required]Guid workspaceId, [FromBody]JsonElement body)
         {
-
-            //TODO: Uncomment the next line to return response 201 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(201, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -45,11 +41,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 201, type: typeof(Workspace))]
         public virtual IActionResult CreateWorkspace([FromBody]JsonElement body)
         {
-
-            //TODO: Uncomment the next line to return response 201 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(201, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -62,11 +55,8 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         public virtual IActionResult DeleteWorkspace([FromRoute (Name = "workspaceId")][Required]Guid workspaceId)
         {
-
-            //TODO: Uncomment the next line to return response 204 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(204);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -82,13 +72,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult GetWorkspace([FromRoute (Name = "workspaceId")][Required]Guid workspaceId)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 404 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(404, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -102,11 +87,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(ListWorkspaceMembers200Response))]
         public virtual IActionResult ListWorkspaceMembers([FromRoute (Name = "workspaceId")][Required]Guid workspaceId)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -119,11 +101,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(ListWorkspaces200Response))]
         public virtual IActionResult ListWorkspaces()
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -142,13 +121,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 412, type: typeof(Problem))]
         public virtual IActionResult PatchWorkspace([FromRoute (Name = "workspaceId")][Required]Guid workspaceId, [FromBody]JsonElement body, [FromHeader (Name = "If-Match")]string ifMatch)
         {
-
-            //TODO: Uncomment the next line to return response 200 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(200, default);
-            //TODO: Uncomment the next line to return response 412 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(412, default);
-            //TODO: Change the data returned
-            return NotImplementedStub();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
 
         /// <summary>
@@ -162,11 +136,8 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         public virtual IActionResult RemoveWorkspaceMember([FromRoute (Name = "workspaceId")][Required]Guid workspaceId, [FromRoute (Name = "userId")][Required]Guid userId)
         {
-
-            //TODO: Uncomment the next line to return response 204 or use other options such as return this.NotFound(), return this.BadRequest(..), ...
-            // return StatusCode(204);
-
-            throw new NotImplementedException();
+            //TODO: Implement this
+            return StatusCode(501, default);
         }
     }
 }
