@@ -6,7 +6,7 @@ namespace Paperless.REST.API.Controllers
     /// Approval workflows for documents. (Optional if time)
     /// </summary>
     [ApiController]
-    public class ApprovalsOptionalController : ControllerBase
+    public class ApprovalsController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 

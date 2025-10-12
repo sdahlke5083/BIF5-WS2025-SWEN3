@@ -42,20 +42,55 @@ namespace Paperless.REST.DAL.Repositories
             await _context.DocumentMetadatas.AddAsync(meta, ct);
 
             // set processing status
-            //var processingStatus = new ProcessingStatus
-            //{
-            //    DocumentId = doc.Id,
-            //    Index = ProcessingState.NotProcessed,
-            //    Ocr = ProcessingState.NotProcessed,
-            //    Summary = ProcessingState.NotProcessed
-            //};
-            //await _context.ProcessingStatuses.AddAsync(processingStatus, ct);
+            var processingStatus = new ProcessingStatus
+            {
+                DocumentId = doc.Id,
+                Index = ProcessingState.NotProcessed,
+                Ocr = ProcessingState.NotProcessed,
+                Summary = ProcessingState.NotProcessed
+            };
+            await _context.ProcessingStatuses.AddAsync(processingStatus, ct);
 
             // save all
             await _context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
             return doc.Id;
+        }
+
+        public Task<Document?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<Document>> GetAllActiveAsync(CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<Document>> GetAllDeleted(CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task UpdateAsync(Document doc, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task DeleteAsync(Guid id, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task RestoreAsync(Guid id, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task PermanentlyDeleteAsync(Guid id, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }

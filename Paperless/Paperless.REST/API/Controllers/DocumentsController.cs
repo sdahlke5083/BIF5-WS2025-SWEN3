@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Paperless.REST.API.Models.BaseResponse;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
@@ -23,9 +24,9 @@ namespace Paperless.REST.API.Controllers
         [HttpDelete]
         [Route("/v1/documents/{id}")]
         //[Authorize]
-        //[ProducesResponseType(statusCode: 401, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 403, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
+        [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
 
         public virtual IActionResult DeleteDocument([FromRoute (Name = "id")][Required]Guid id)
         {
@@ -49,9 +50,9 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(Stream))]
         //[ProducesResponseType(statusCode: 206, type: typeof(Stream))]
-        //[ProducesResponseType(statusCode: 401, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 403, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
+        [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
         public virtual IActionResult DownloadFile([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string xSharePassword)
         {
             //TODO: Implement this
@@ -72,9 +73,9 @@ namespace Paperless.REST.API.Controllers
         //[Authorize(Policy = "shareToken")]
         //[Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(Document))]
-        //[ProducesResponseType(statusCode: 401, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 403, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
+        [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
         public virtual IActionResult GetDocument([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string xSharePassword)
         {
             //TODO: Implement this
@@ -116,10 +117,12 @@ namespace Paperless.REST.API.Controllers
         /// <param name="approvalStatus"></param>
         /// <param name="shared"></param>
         /// <response code="200">Paged result</response>
+        /// <response code="400">Bad Request: wrong format or missing data</response>
         [HttpGet]
         [Route("/v1/documents")]
         //[Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
+        [ProducesResponseType(400)]
         public virtual IActionResult ListDocuments([FromQuery (Name = "q")]string q, [FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize, [FromQuery (Name = "sort")]string sort, [FromQuery (Name = "fileType")]string fileType, [FromQuery (Name = "sizeMin")]long? sizeMin, [FromQuery (Name = "sizeMax")]long? sizeMax, [FromQuery (Name = "uploadDateFrom")]DateTime? uploadDateFrom, [FromQuery (Name = "uploadDateTo")]DateTime? uploadDateTo, [FromQuery (Name = "hasSummary")]bool? hasSummary, [FromQuery (Name = "hasError")]bool? hasError, [FromQuery (Name = "uploaderId")]Guid? uploaderId, [FromQuery (Name = "workspaceId")]Guid? workspaceId, [FromQuery (Name = "approvalStatus")]string approvalStatus, [FromQuery (Name = "shared")]bool? shared)
         {
             //TODO: Implement this
@@ -158,11 +161,11 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         [Consumes("application/merge-patch+json")]
         //[ProducesResponseType(statusCode: 200, type: typeof(Document))]
-        //[ProducesResponseType(statusCode: 400, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 401, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 403, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 412, type: typeof(Problem))]
+        [ProducesResponseType(statusCode: 400, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 412, type: typeof(ProblemResponse))]
         public virtual IActionResult PatchDocument([FromRoute (Name = "id")][Required]Guid id, [FromBody]JsonElement body, [FromHeader (Name = "If-Match")]string ifMatch)
         {
             //TODO: Implement this
@@ -180,9 +183,9 @@ namespace Paperless.REST.API.Controllers
         [HttpDelete]
         [Route("/v1/documents/{id}:purge")]
         //[Authorize]
-        //[ProducesResponseType(statusCode: 401, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 403, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
+        [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
         public virtual IActionResult PurgeDocument([FromRoute (Name = "id")][Required]Guid id)
         {
             //TODO: Implement this
@@ -200,9 +203,9 @@ namespace Paperless.REST.API.Controllers
         [HttpPost]
         [Route("/v1/documents/{id}:restore")]
         //[Authorize]
-        //[ProducesResponseType(statusCode: 401, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 403, type: typeof(Problem))]
-        //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
+        [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
+        [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
         public virtual IActionResult RestoreDocument([FromRoute (Name = "id")][Required]Guid id)
         {
             //TODO: Implement this
