@@ -1,12 +1,50 @@
 ﻿@page "/upload"
+@using Microsoft.AspNetCore.Components.Forms
+@inject Paperless.UI.Services.IUploadsApiClient UploadsApi
 
 <PageTitle>Upload</PageTitle>
 
-<h1>Upload</h1>
+<h3>Upload a file</h3>
 
-<p>This is a demo page to test the Upload functionality.</p>
+<InputFile OnChange="OnFileSelected" />
+<button class="btn btn-primary mt-2" @onclick="UploadAsync" disabled="@(selectedFile is null || isUploading)">Upload</button>
 
+@if (isUploading)
+{
+    <p>Uploading...</p>
+}
+@if (!string.IsNullOrEmpty(status))
+{
+    <p>@status</p>
+}
 
 @code {
-    // add some code here
+    private IBrowserFile? selectedFile;
+    private bool isUploading = false;
+    private string? status;
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        status = null;
+    }
+
+    private async Task UploadAsync()
+    {
+        if (selectedFile is null) return;
+        try
+        {
+            isUploading = true;
+            var result = await UploadsApi.UploadAsync(selectedFile);
+            status = $"OK: accepted={result.accepted}, saved=[{string.Join(", ", result.saved)}]";
+        }
+        catch (Exception ex)
+        {
+            status = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
 }
