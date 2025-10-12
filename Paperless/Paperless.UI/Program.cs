@@ -12,7 +12,16 @@ namespace Paperless.UI
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
 
+            // Configure HttpClient for REST API
+            var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://paperless.rest:8080";
+            builder.Services.AddHttpClient<Paperless.UI.Services.IUploadsApiClient, Paperless.UI.Services.UploadsApiClient>(client =>
+            {
+                if (!apiBase.EndsWith("/")) apiBase += "/";
+                client.BaseAddress = new Uri(apiBase);
+            });
+
             var app = builder.Build();
+
 
             // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment())
@@ -22,7 +31,16 @@ namespace Paperless.UI
                 app.UseHsts();
             }
 
-            app.UseHttpsRedirection();
+            // Only use HTTPS redirection in production
+            if (!app.Environment.IsDevelopment())
+            {
+                app.UseHttpsRedirection();
+            }
+            else
+            {
+                // For development, you can log API connection info
+                Console.WriteLine($"API Base URL configured as: {apiBase}");
+            }
 
             app.UseAntiforgery();
 

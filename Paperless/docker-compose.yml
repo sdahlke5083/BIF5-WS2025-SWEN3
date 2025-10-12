@@ -31,7 +31,7 @@ services:
       - POSTGRES_USER=paperless
       - POSTGRES_PASSWORD=paperless
     volumes:
-      - ./.data/paperless-db:/var/lib/postgresql/data
+      - ./.data/paperless-db:/var/lib/postgresql/data:rw
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1"]
       interval: 10s
@@ -51,5 +51,6 @@ services:
       - ADMINER_DESIGN=dracula
     depends_on:
       - paperless.db
+
 
 
