@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.REST.Test", "Rest
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.UI", "Paperless.UI\Paperless.UI.csproj", "{36E28DF9-B782-451B-B2CA-4C600CA466CD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paperless.Worker.OCR", "Paperless.Worker.OCR\Paperless.Worker.OCR.csproj", "{24E0ACB8-44D4-43B2-8112-A8C7D7D86D77}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{36E28DF9-B782-451B-B2CA-4C600CA466CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{36E28DF9-B782-451B-B2CA-4C600CA466CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{36E28DF9-B782-451B-B2CA-4C600CA466CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24E0ACB8-44D4-43B2-8112-A8C7D7D86D77}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24E0ACB8-44D4-43B2-8112-A8C7D7D86D77}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24E0ACB8-44D4-43B2-8112-A8C7D7D86D77}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24E0ACB8-44D4-43B2-8112-A8C7D7D86D77}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

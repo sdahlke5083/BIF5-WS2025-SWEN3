@@ -1,8 +1,10 @@
 ﻿using System.Text.Json;
 using Paperless.REST.BLL.Exceptions;
 using Paperless.REST.BLL.Uploads.Models;
+using Paperless.REST.BLL.Worker;
 using Paperless.REST.DAL.Models;
 using Paperless.REST.DAL.Repositories;
+using System.Text.Json;
 
 namespace Paperless.REST.BLL.Uploads
 {
@@ -20,6 +22,7 @@ namespace Paperless.REST.BLL.Uploads
         private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         private readonly IDocumentRepository _documentRepository;
+        private readonly IDocumentEventPublisher _documentEventPublisher;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UploadService"/> class.
@@ -28,9 +31,10 @@ namespace Paperless.REST.BLL.Uploads
         /// to handle document-related operations. Ensure that the provided repository is properly configured before
         /// using this service.</remarks>
         /// <param name="documentRepository">The repository used to manage document storage and retrieval operations.</param>
-        public UploadService(IDocumentRepository documentRepository)
+        public UploadService(IDocumentRepository documentRepository, IDocumentEventPublisher documentEventPublisher)
         {
             _documentRepository = documentRepository;
+            _documentEventPublisher = documentEventPublisher;
         }
 
         /// <summary>
@@ -118,6 +122,9 @@ namespace Paperless.REST.BLL.Uploads
                                 Description = metaFile.Description,
                                 CreatedAt = DateTimeOffset.UtcNow
                             };
+
+                            // add document to the Database
+
                             var docID = _documentRepository.CreateWithMetadataAsync(doc, meta, cancelToken).GetAwaiter().GetResult();
                             if (docID == Guid.Empty)
                             {
@@ -128,6 +135,9 @@ namespace Paperless.REST.BLL.Uploads
                                 result.DocumentIds ??= new List<Guid>();
                                 result.DocumentIds.Add(docID);
                             }
+
+                            // fire up rabbitmq event to process the document
+                            _documentEventPublisher.PublishDocumentUploadedAsync(docID, cancelToken).GetAwaiter().GetResult();
                         }
                     }
                 }

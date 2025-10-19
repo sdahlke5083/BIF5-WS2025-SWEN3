@@ -2,6 +2,7 @@ version: '3.8'
 name: paperless-swen3
 
 services:
+  # REST API service
   paperless.rest:
     image: ${DOCKER_REGISTRY-}paperlessrest
     container_name: paperless-rest
@@ -13,6 +14,7 @@ services:
     depends_on:
       - paperless.db
 
+  # UI service using Blazor
   paperless.ui:
     image: ${DOCKER_REGISTRY-}paperlessui
     container_name: paperless-ui
@@ -22,6 +24,7 @@ services:
     depends_on:
       - paperless.rest
 
+  # Database service using basic PostgreSQL docker image
   paperless.db:
     image: postgres:15
     restart: unless-stopped
@@ -39,6 +42,7 @@ services:
       retries: 10
       start_period: 30s
 
+  # Adminer service for database management
   paperless.adminer:
     image: adminer:5.4.0
     container_name: paperless-adminer
@@ -51,6 +55,32 @@ services:
       - ADMINER_DESIGN=dracula
     depends_on:
       - paperless.db
+  
+  # RabbitMQ service for queuing tasks for the workers
+  paperless.rabbitmq:
+    image: rabbitmq:4.2-rc-management-alpine
+    container_name: paperless-rabbitmq
+    restart: unless-stopped
+    ports:
+      - 15672:15672
+      - 5672:5672
+    environment:
+      - RABBITMQ_DEFAULT_USER=paperless
+      - RABBITMQ_DEFAULT_PASS=paperless
+    volumes:
+      - ./.data/paperless-rabbitmq:/var/lib/rabbitmq:rw
 
+  # OCR Worker service for processing documents
+  paperless.worker.ocr:
+    image: ${DOCKER_REGISTRY-}paperlessocrworker
+    container_name: paperless-ocr-worker
+    build:
+      context: .
+      dockerfile: Paperless.Worker.OCR/Dockerfile
+    volumes:
+      - ./.data/Files:/.data/Files:rw
+    depends_on:
+      - paperless.db
+      - paperless.rabbitmq
 
 
