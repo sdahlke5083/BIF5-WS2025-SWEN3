@@ -1,13 +1,18 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
+using NLog.Web;
+using Paperless.REST.API.Middleware;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.DAL;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
-using System.Reflection;
-using Microsoft.Extensions.Options;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Host.UseNLog();
 
 var services = builder.Services;
 
@@ -77,6 +82,9 @@ services.AddSwaggerGen(options =>
 
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

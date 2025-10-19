@@ -1,7 +1,8 @@
-﻿using Paperless.REST.BLL.Uploads.Models;
+﻿using System.Text.Json;
+using Paperless.REST.BLL.Exceptions;
+using Paperless.REST.BLL.Uploads.Models;
 using Paperless.REST.DAL.Models;
 using Paperless.REST.DAL.Repositories;
-using System.Text.Json;
 
 namespace Paperless.REST.BLL.Uploads
 {
@@ -147,10 +148,10 @@ namespace Paperless.REST.BLL.Uploads
         /// <returns>A task that represents the asynchronous operation. The task result is <see langword="true"/> if the files
         /// were successfully saved; otherwise, <see langword="false"/>.</returns>
         /// <exception cref="NotImplementedException"></exception>
-        public Task<bool> SaveFilesAsync(
-            IReadOnlyCollection<UploadFile> files,  // files to be uploaded
-            string? metadataRaw,
-            CancellationToken cancelToken = default)    // optional cancellation token
+        public async Task<bool> SaveFilesAsync(
+        IReadOnlyCollection<UploadFile> files,
+        string? metadataRaw,
+        CancellationToken cancelToken = default)
         {
             throw new NotImplementedException();
         }
