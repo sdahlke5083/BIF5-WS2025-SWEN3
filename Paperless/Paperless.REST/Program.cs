@@ -12,6 +12,7 @@ using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
 using RabbitMQ.Client;
 using System.Reflection;
+using Paperless.REST.BLL.Models;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
