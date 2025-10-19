@@ -58,15 +58,6 @@ namespace Rest.Test.Middleware
         }
 
         [Test]
-        public async Task EntityNotFoundException_Returns404()
-        {
-            var problem = await InvokeAndReadAsync(_ => throw new EntityNotFoundException("Nope", "Document", Guid.NewGuid()));
-
-            Assert.That(problem.Status, Is.EqualTo(StatusCodes.Status404NotFound));
-            Assert.That(problem.Title, Is.EqualTo("Entity not found"));
-        }
-
-        [Test]
         public async Task DataAccessException_Returns503()
         {
             var problem = await InvokeAndReadAsync(_ => throw new DataAccessException("DB timed out"));

@@ -65,15 +65,6 @@ namespace Paperless.REST.API.Middleware
                     logAsError = false;
                     break;
 
-                case EntityNotFoundException nfx:
-                    status = HttpStatusCode.NotFound;                   // 404
-                    type = "urn:paperless:errors:not-found";
-                    title = "Entity not found";
-                    if(nfx.InnerException is not null)
-                        detail = nfx.InnerException.Message;
-                    logAsError = false;
-                    break;
-
                 case DataAccessException daex:
                     status = HttpStatusCode.ServiceUnavailable;         // 503 (DB down, Timeout, etc.)
                     type = "urn:paperless:errors:data-access";

@@ -63,8 +63,7 @@ namespace Paperless.REST.BLL.Uploads
             // must have atleast one file
             if (files is null || files.Count == 0)
             {
-                result.Errors.Add("No files were provided. Send at least one file via form field 'files'.");
-                return Task.FromResult(result); // Return precompleted task with result
+                throw new ValidationException("No files were provided.", new[] { "No files were provided. Send at least one file via form field 'files'." });
             }
 
             // must be a plosible file
@@ -97,51 +96,54 @@ namespace Paperless.REST.BLL.Uploads
                 }
             }
 
-            if (result.Errors.Count == 0)
+            if(result.Errors.Count is not 0)
             {
-                // no errors -> accept the files received
-                result.AcceptedCount = files.Count;
+                throw new ValidationException("Errors occurred during Validation!", result.Errors);
+            }
 
-                var metaJson = JsonSerializer.Deserialize<UploadMultiMetadata>(metadataRaw ?? "{}", _jsonOptions);
-                foreach (var f in files)
+            // no errors -> accept the files received
+            result.AcceptedCount = files.Count;
+            
+            var metaJson = JsonSerializer.Deserialize<UploadMultiMetadata>(metadataRaw ?? "{}", _jsonOptions);
+            foreach (var f in files)
+            {
+                // if no filename in metadata, use the uploaded filename
+                if (metaJson is null || metaJson.Files is null)
                 {
-                    // if no filename in metadata, use the uploaded filename
-                    if (metaJson is null || metaJson.Files is null)
+                    result.Errors.Add($"No metadata found or invalid format for file '{f.FileName}'.");
+                }
+                else
+                {
+                    var metaFile = metaJson.Files.FirstOrDefault(mf => mf.Key == f.FileName).Value;
+                    if (metaFile is not null)
                     {
-                        result.Errors.Add($"No metadata found or invalid format for file '{f.FileName}'.");
-                    }
-                    else
-                    {
-                        var metaFile = metaJson.Files.FirstOrDefault(mf => mf.Key == f.FileName).Value;
-                        if (metaFile is not null)
+                        var doc = new Document();
+                        var meta = new DocumentMetadata
                         {
-                            var doc = new Document();
-                            var meta = new DocumentMetadata
-                            {
-                                Title = metaFile.Title ?? f.FileName,
-                                Description = metaFile.Description,
-                                CreatedAt = DateTimeOffset.UtcNow
-                            };
-
-                            // add document to the Database
-
-                            var docID = _documentRepository.CreateWithMetadataAsync(doc, meta, cancelToken).GetAwaiter().GetResult();
-                            if (docID == Guid.Empty)
-                            {
-                                result.Errors.Add($"Failed to create document for file '{f.FileName}'.");
-                            }
-                            else
-                            {
-                                result.DocumentIds ??= new List<Guid>();
-                                result.DocumentIds.Add(docID);
-                            }
-
-                            // fire up rabbitmq event to process the document
-                            _documentEventPublisher.PublishDocumentUploadedAsync(docID, cancelToken).GetAwaiter().GetResult();
+                            Title = metaFile.Title ?? f.FileName,
+                            Description = metaFile.Description,
+                            CreatedAt = DateTimeOffset.UtcNow
+                        };
+            
+                        // add document to the Database
+            
+                        var docID = _documentRepository.CreateWithMetadataAsync(doc, meta, cancelToken).GetAwaiter().GetResult();
+                        if (docID == Guid.Empty)
+                        {
+                            result.Errors.Add($"Failed to create document for file '{f.FileName}'.");
                         }
+                        else
+                        {
+                            result.DocumentIds ??= new List<Guid>();
+                            result.DocumentIds.Add(docID);
+                        }
+            
+                        // fire up rabbitmq event to process the document
+                        _documentEventPublisher.PublishDocumentUploadedAsync(docID, cancelToken).GetAwaiter().GetResult();
                     }
                 }
             }
+
             return Task.FromResult(result);
         }
 
