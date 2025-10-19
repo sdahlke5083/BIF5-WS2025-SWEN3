@@ -1,15 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
+using Paperless.REST.BLL.Models;
 using Paperless.REST.BLL.Uploads;
+using Paperless.REST.BLL.Worker;
 using Paperless.REST.DAL;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
+using RabbitMQ.Client;
 using System.Reflection;
-using Microsoft.Extensions.Options;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 var services = builder.Services;
+
+// Add configuration
+services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("Paperless").GetSection("Queue"));
 
 // Add services to the container.
 services.AddControllers().AddJsonOptions(x =>
@@ -21,14 +28,20 @@ services.AddDbContext<PostgressDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection"));
     o.UseCamelCaseNamingConvention();
 });
+services.AddSingleton<RabbitMqConnection>();
+services.AddSingleton<IRabbitMqConnection>(sp => sp.GetRequiredService<RabbitMqConnection>());
+services.AddSingleton<DocumentEventPublisher>();
+services.AddSingleton<IDocumentEventPublisher>(sp => sp.GetRequiredService<DocumentEventPublisher>());
+
 
 // Add the Upload Service
 services.AddScoped<IUploadService>(sp =>
 {
     var repo = sp.GetRequiredService<IDocumentRepository>();
     var config = sp.GetRequiredService<IConfiguration>();
-    var service = new UploadService(repo);
-    service.Path = config.GetSection("Paperless-Filepath").Value ?? "/.data/Files"; //TODO: fix this
+    var rabbitmq = sp.GetRequiredService<IDocumentEventPublisher>();
+    var service = new UploadService(repo, rabbitmq);
+    service.Path = config.GetSection("Paperless").GetSection("Path").Value ?? "/.data/Files"; //TODO: fix this
     return service;
 });
 
