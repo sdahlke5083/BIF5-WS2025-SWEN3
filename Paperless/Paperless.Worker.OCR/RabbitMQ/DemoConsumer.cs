@@ -24,11 +24,11 @@ namespace Paperless.Worker.OCR.RabbitMQ
             };
 
             // Synchrone Erstellung der Verbindung und des Kanals (stabil und kompatibel)
-            using var conn = await factory.CreateConnectionAsync(cancellationToken);
+            var conn = await factory.CreateConnectionAsync(cancellationToken);
             _ch = await conn.CreateChannelAsync();
 
             // Queue synchron deklarieren
-            await _ch.QueueDeclareAsync(queue: "demo-queue", durable: false, exclusive: false, autoDelete: false, arguments: null);
+            await _ch.QueueDeclareAsync(queue: "demo-queue", durable: true, exclusive: false, autoDelete: false, arguments: null);
 
             // StartAsync der Basisklasse aufrufen, damit ExecuteAsync gestartet wird
             await base.StartAsync(cancellationToken);
@@ -46,7 +46,7 @@ namespace Paperless.Worker.OCR.RabbitMQ
                 {
                     var body = ea.Body;
                     var json = Encoding.UTF8.GetString(body.Span);
-                    Console.WriteLine($"[demo] {json}");
+                    Console.WriteLine($"[DemoConsumer] Recieved new Message in Queue: {json}");
                     await _ch.BasicAckAsync(ea.DeliveryTag, multiple: false);
                 }
                 catch

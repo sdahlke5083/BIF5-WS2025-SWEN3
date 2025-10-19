@@ -1,28 +1,35 @@
-﻿using Microsoft.Extensions.Options;
+﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Paperless.REST.BLL.Models;
 using RabbitMQ.Client;
 
 namespace Paperless.REST.BLL.Worker
 {
-    public class RabbitMqConnection : IRabbitMqConnection
+    public class RabbitMqConnection : IRabbitMqConnection, IHostedService
     {
+        private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+
         private IChannel? _channel;
         private IConnection? _connection;
         private RabbitMqOptions? _options;
-
         public IConnection Connection => _connection ?? throw new InvalidOperationException("RabbitMQ connection has not been established.");
         public IChannel Channel => _channel ?? throw new InvalidOperationException("RabbitMQ channel has not been created.");
 
-        /// <summary>
-        /// Establishes an asynchronous connection to a RabbitMQ server using the specified configuration options.
-        /// </summary>
-        /// <param name="options">The configuration options for the RabbitMQ connection. The <see cref="RabbitMqOptions"/> must include a
-        /// valid server address.</param>
-        /// <returns>A task that represents the asynchronous operation of establishing the connection.</returns>
-        public async Task RabbitMqConnectionAsync(IOptions<RabbitMqOptions> options)
+        public RabbitMqConnection(IOptions<RabbitMqOptions> options)
         {
+            if(options is null)
+                throw new ArgumentNullException(nameof(options));
             _options = options.Value;
+        }
 
+
+        // IHostedService - Establish connection when the host starts
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
             var factory = new ConnectionFactory
             {
                 HostName = _options.ServerAddress,
@@ -30,23 +37,60 @@ namespace Paperless.REST.BLL.Worker
                 Password = "paperless"
             };
 
+            _logger.Debug("Attempting to connect to RabbitMQ at {ServerAddress}", _options.ServerAddress);
+            // use parameterless CreateConnectionAsync for compatibility with RabbitMQ.Client versions
             _connection = await factory.CreateConnectionAsync();
+            _logger.Debug("Connected to RabbitMQ at {ServerAddress}", _options.ServerAddress);
+        }
+
+        // IHostedService - cleanup when the host stops
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.Debug("Stopping RabbitMqConnection");
+            await DisposeAsync();
         }
 
         public async ValueTask DisposeAsync()
         {
-            if (_channel != null)
-                await _channel.DisposeAsync();
-            await Connection.DisposeAsync();
+            try
+            {
+                if (_channel != null)
+                {
+                    await _channel.DisposeAsync();
+                    _channel = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error disposing RabbitMQ channel");
+            }
+
+            try
+            {
+                if (_connection != null)
+                {
+                    await Connection.DisposeAsync();
+                    _connection = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error disposing RabbitMQ connection");
+            }
         }
 
         public async Task<IChannel> CreateChannelAsync(CancellationToken ct = default)
         {
             if (_channel == null)
             {
+                if (_connection == null)
+                    throw new InvalidOperationException("RabbitMQ connection has not been established.");
+
                 _channel = await Connection.CreateChannelAsync(null, ct);
+
                 if (_options == null)
                     throw new InvalidOperationException("RabbitMQ options have not been set.");
+
                 await _channel.QueueDeclareAsync(queue: _options.QueueName, durable: _options.Durable, autoDelete: false, exclusive: false, arguments: null, cancellationToken: ct);
             }
             return _channel;

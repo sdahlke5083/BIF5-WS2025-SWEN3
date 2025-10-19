@@ -23,7 +23,7 @@ namespace Paperless.REST.BLL.Worker
 
         public async Task PublishDocumentUploadedAsync(Guid documentId, CancellationToken ct = default)
         {
-            await using var _channel = await _rabbitMqConnection.CreateChannelAsync(ct);
+            var _channel = await _rabbitMqConnection.CreateChannelAsync(ct);
 
             var message = new
             {

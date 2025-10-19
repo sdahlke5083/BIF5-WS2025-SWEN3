@@ -30,6 +30,7 @@ services.AddDbContext<PostgressDbContext>(o =>
 });
 services.AddSingleton<RabbitMqConnection>();
 services.AddSingleton<IRabbitMqConnection>(sp => sp.GetRequiredService<RabbitMqConnection>());
+services.AddHostedService(sp => sp.GetRequiredService<RabbitMqConnection>());
 services.AddSingleton<DocumentEventPublisher>();
 services.AddSingleton<IDocumentEventPublisher>(sp => sp.GetRequiredService<DocumentEventPublisher>());
 

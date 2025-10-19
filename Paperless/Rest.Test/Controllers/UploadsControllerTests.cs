@@ -49,7 +49,7 @@ namespace Rest.Test.Controllers
 
             var sut = new UploadsController(uploadService.Object);
 
-            var result = await sut.UploadFiles(files, metadata: null, CancellationToken.None);
+            var result = await sut.UploadFiles(files, metadata: null);
 
             var bad = result as BadRequestObjectResult;
             Assert.That(bad, Is.Not.Null, "Expected BadRequest when validation fails");
@@ -97,7 +97,7 @@ namespace Rest.Test.Controllers
 
                 var sut = new UploadsController(uploadService.Object);
 
-                var result = await sut.UploadFiles(files, metadata: "{\"key\":\"value\"}", CancellationToken.None);
+                var result = await sut.UploadFiles(files, metadata: "{\"key\":\"value\"}");
 
                 var ok = result as OkObjectResult;
                 Assert.That(ok, Is.Not.Null, "Expected Ok on successful validation");
@@ -157,7 +157,7 @@ namespace Rest.Test.Controllers
 
                 var sut = new UploadsController(uploadService.Object);
 
-                var result = await sut.UploadFiles(files, metadata: null, CancellationToken.None);
+                var result = await sut.UploadFiles(files, metadata: null);
 
                 var ok = result as OkObjectResult;
                 Assert.That(ok, Is.Not.Null);
