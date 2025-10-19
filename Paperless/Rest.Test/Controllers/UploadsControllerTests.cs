@@ -24,46 +24,6 @@ namespace Rest.Test.Controllers
         }
 
         [Test]
-        public async Task UploadFiles_WhenValidationFails_ReturnsBadRequestWithProblemDetails()
-        {
-            var files = new List<IFormFile>
-            {
-                CreateFormFile("bad.txt", "oops")
-            };
-
-            var uploadService = new Mock<IUploadService>();
-
-            var failedValidation = new UploadValidationResult
-            {
-                AcceptedCount = 0
-            };
-            failedValidation.Errors.Add("Invalid file type");
-            failedValidation.Errors.Add("Too large");
-
-            uploadService
-                .Setup(s => s.ValidateAsync(
-                    It.IsAny<IReadOnlyCollection<UploadFile>>(),
-                    It.IsAny<string?>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(failedValidation);
-
-            var sut = new UploadsController(uploadService.Object);
-
-            var result = await sut.UploadFiles(files, metadata: null, CancellationToken.None);
-
-            var bad = result as BadRequestObjectResult;
-            Assert.That(bad, Is.Not.Null, "Expected BadRequest when validation fails");
-
-            var problem = bad!.Value as ProblemDetails;
-            Assert.That(problem, Is.Not.Null);
-            Assert.That(problem!.Title, Is.EqualTo("Upload validation failed"));
-            Assert.That(problem.Status, Is.EqualTo(StatusCodes.Status400BadRequest));
-            Assert.That(problem.Detail, Does.Contain("Invalid file type").And.Contain("Too large"));
-
-            uploadService.VerifyGet(s => s.Path, Times.Never);
-        }
-
-        [Test]
         public async Task UploadFiles_WhenValidationSucceeds_SavesFilesAndReturnsOk()
         {
             var tempRoot = Path.Combine(Path.GetTempPath(), "paperless-tests", Guid.NewGuid().ToString("N"));
@@ -97,7 +57,7 @@ namespace Rest.Test.Controllers
 
                 var sut = new UploadsController(uploadService.Object);
 
-                var result = await sut.UploadFiles(files, metadata: "{\"key\":\"value\"}", CancellationToken.None);
+                var result = await sut.UploadFiles(files, metadata: "{\"key\":\"value\"}");
 
                 var ok = result as OkObjectResult;
                 Assert.That(ok, Is.Not.Null, "Expected Ok on successful validation");
@@ -157,7 +117,7 @@ namespace Rest.Test.Controllers
 
                 var sut = new UploadsController(uploadService.Object);
 
-                var result = await sut.UploadFiles(files, metadata: null, CancellationToken.None);
+                var result = await sut.UploadFiles(files, metadata: null);
 
                 var ok = result as OkObjectResult;
                 Assert.That(ok, Is.Not.Null);

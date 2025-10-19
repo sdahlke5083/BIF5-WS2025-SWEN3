@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Paperless.REST.DAL.DbContexts;
+using Paperless.REST.DAL.Exceptions;
 using Paperless.REST.DAL.Models;
 
 namespace Paperless.REST.DAL.Repositories
@@ -25,6 +26,11 @@ namespace Paperless.REST.DAL.Repositories
 
             // start transaction
             await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+            if (transaction is null)
+            {
+                _logger.Error("Failed to start database transaction for creating document with metadata.");
+                throw new DataAccessException("Failed to start database transaction for creating document with metadata.");
+            }
 
             // add document
             await _context.Documents.AddAsync(doc, ct);
@@ -33,7 +39,7 @@ namespace Paperless.REST.DAL.Repositories
             if(doc.Id == Guid.Empty)
             {
                 _logger.Error("Document ID is empty after adding document to database.");
-                throw new Exception("Document ID is empty after adding document to database.");
+                throw new DataAccessException("Document ID is empty after adding document to database.");
             }
 
             // add metadata
@@ -52,8 +58,17 @@ namespace Paperless.REST.DAL.Repositories
             //await _context.ProcessingStatuses.AddAsync(processingStatus, ct);
 
             // save all
-            await _context.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
+            try
+            {
+                await _context.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error occurred while creating document with metadata.");
+                await transaction.RollbackAsync(ct);
+                throw new DataAccessException("Error occurred while creating document with metadata.", ex);
+            }
 
             return doc.Id;
         }
