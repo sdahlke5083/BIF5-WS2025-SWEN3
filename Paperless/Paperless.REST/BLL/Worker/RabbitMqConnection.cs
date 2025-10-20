@@ -34,7 +34,7 @@ namespace Paperless.REST.BLL.Worker
             {
                 HostName = _options.ServerAddress,
                 UserName = "paperless",
-                Password = "paperless"
+                Password = "paperless" // TODO HIDE CREDENTIALS
             };
 
             _logger.Debug("Attempting to connect to RabbitMQ at {ServerAddress}", _options.ServerAddress);

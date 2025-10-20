@@ -45,6 +45,7 @@ namespace Paperless.REST.API.Middleware
             string detail = ex.Message;
             bool logAsError = true;
 
+            // TODO: ADD IF DEBUG FLAG
             switch (ex)
             {
                 case ValidationException vex:

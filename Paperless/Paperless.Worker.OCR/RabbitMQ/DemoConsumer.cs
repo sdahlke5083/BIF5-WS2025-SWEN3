@@ -20,7 +20,7 @@ namespace Paperless.Worker.OCR.RabbitMQ
             {
                 HostName = "paperless-rabbitmq",
                 UserName = "paperless",
-                Password = "paperless"
+                Password = "paperless" // TODO HIDE CREDENTIALS
             };
 
             // Synchrone Erstellung der Verbindung und des Kanals (stabil und kompatibel)

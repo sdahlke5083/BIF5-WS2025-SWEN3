@@ -13,6 +13,7 @@ services:
       - ./.data/Files:/.data/Files:rw
     depends_on:
       - paperless.db
+      - paperless.rabbitmq
 
   # UI service using Blazor
   paperless.ui:
