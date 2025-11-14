@@ -1,9 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Paperless.REST.BLL.Models;
 using RabbitMQ.Client;
 
@@ -32,15 +27,15 @@ namespace Paperless.REST.BLL.Worker
         {
             var factory = new ConnectionFactory
             {
-                HostName = _options.ServerAddress,
+                HostName = _options!.ServerAddress,
                 UserName = "paperless",
-                Password = "paperless" // TODO HIDE CREDENTIALS
+                Password = "paperless", // TODO HIDE CREDENTIALS
+                AutomaticRecoveryEnabled = true,
+                RequestedConnectionTimeout = TimeSpan.FromSeconds(10)
             };
 
             _logger.Debug("Attempting to connect to RabbitMQ at {ServerAddress}", _options.ServerAddress);
-            // use parameterless CreateConnectionAsync for compatibility with RabbitMQ.Client versions
             _connection = await factory.CreateConnectionAsync();
-            _logger.Debug("Connected to RabbitMQ at {ServerAddress}", _options.ServerAddress);
         }
 
         // IHostedService - cleanup when the host stops

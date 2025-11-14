@@ -14,6 +14,7 @@ services:
     depends_on:
       - paperless.db
       - paperless.rabbitmq
+      - paperless.minio
 
   # UI service using Blazor
   paperless.ui:
@@ -70,6 +71,21 @@ services:
       - RABBITMQ_DEFAULT_PASS=paperless
     volumes:
       - ./.data/paperless-rabbitmq:/var/lib/rabbitmq:rw
+
+  # MinIO object storage used for file storage
+  paperless.minio:
+    image: minio/minio:latest
+    container_name: paperless-minio
+    restart: unless-stopped
+    ports:
+      - 9000:9000    # MinIO API
+      - 9001:9001    # MinIO Console
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - ./.data/minio:/data:rw
+    command: server /data --console-address ":9001"
 
   # OCR Worker service for processing documents
   paperless.worker.ocr:
