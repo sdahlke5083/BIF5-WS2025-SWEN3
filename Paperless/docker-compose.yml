@@ -9,6 +9,8 @@ services:
     build:
       context: .
       dockerfile: Paperless.REST/Dockerfile
+    ports:
+      - "8081:8081"
     volumes:
       - ./.data/Files:/.data/Files:rw
     depends_on:
@@ -23,8 +25,24 @@ services:
     build:
       context: . 
       dockerfile: Paperless.UI/Dockerfile
+    ports:
+      - "80:8080"
+      - "443:8081"
     depends_on:
       - paperless.rest
+
+  # OCR Worker service for processing documents
+  paperless.worker.ocr:
+    image: ${DOCKER_REGISTRY-}paperlessocrworker
+    container_name: paperless-ocr-worker
+    build:
+      context: .
+      dockerfile: Paperless.Worker.OCR/Dockerfile
+    volumes:
+      - ./.data/Files:/.data/Files:rw
+    depends_on:
+      - paperless.db
+      - paperless.rabbitmq
 
   # Database service using basic PostgreSQL docker image
   paperless.db:
@@ -64,7 +82,7 @@ services:
     container_name: paperless-rabbitmq
     restart: unless-stopped
     ports:
-      - 15672:15672
+      - 9093:15672
       - 5672:5672
     environment:
       - RABBITMQ_DEFAULT_USER=paperless
@@ -79,25 +97,14 @@ services:
     restart: unless-stopped
     ports:
       - 9000:9000    # MinIO API
-      - 9001:9001    # MinIO Console
+      - 9090:9001    # MinIO Console
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
     volumes:
-      - ./.data/minio:/data:rw
+      - ./.data/paperless-minio:/data:rw
     command: server /data --console-address ":9001"
 
-  # OCR Worker service for processing documents
-  paperless.worker.ocr:
-    image: ${DOCKER_REGISTRY-}paperlessocrworker
-    container_name: paperless-ocr-worker
-    build:
-      context: .
-      dockerfile: Paperless.Worker.OCR/Dockerfile
-    volumes:
-      - ./.data/Files:/.data/Files:rw
-    depends_on:
-      - paperless.db
-      - paperless.rabbitmq
+
 
 

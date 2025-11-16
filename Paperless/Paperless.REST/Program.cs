@@ -14,6 +14,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
+builder.UseNLog();
 
 var services = builder.Services;
 
