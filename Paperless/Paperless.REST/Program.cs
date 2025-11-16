@@ -9,6 +9,7 @@ using Paperless.REST.DAL;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
 using System.Reflection;
+using Paperless.REST.BLL.Storage;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,16 @@ var services = builder.Services;
 
 // Add configuration
 services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("Paperless").GetSection("Queue"));
+
+// MinIO Storage configuration
+services.Configure<MinioStorageOptions>(
+    builder.Configuration
+        .GetSection("Paperless")
+        .GetSection("Storage")
+        .GetSection("Minio"));
+
+services.AddSingleton<IFileStorageService, MinioFileStorageService>();
+
 
 // Add services to the container.
 services.AddControllers().AddJsonOptions(x =>
