@@ -40,7 +40,7 @@ Architekturplan: [Documentation/semester-project-architecture.png](Documentation
 > [!NOTE] 
 > **API-Dokumentation**
 > Die REST API ist mit Swagger dokumentiert und kann unter `https://localhost:8081/` aufgerufen werden (nach Start der Container), wenn dieser im Debug-Modus gestartet wurde.
-> Alternativ wurde ein Auszug der API-Dokumentation auch im Wiki hinterlegt: [API Dokumentation](/wiki/API-Dokumentation).
+> Alternativ wurde ein Auszug der API-Dokumentation auch im Wiki hinterlegt: [API-Dokumentation](https://github.com/sdahlke5083/BIF5-WS2025-SWEN3/wiki/API%E2%80%90Dokumentation).
 
 ---
 
