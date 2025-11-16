@@ -1,18 +1,14 @@
-using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Paperless.REST.API.Middleware;
+using Paperless.REST.BLL.Models;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Worker;
 using Paperless.REST.DAL;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
-using RabbitMQ.Client;
 using System.Reflection;
-using Paperless.REST.BLL.Models;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

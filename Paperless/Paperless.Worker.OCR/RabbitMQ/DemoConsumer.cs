@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using RabbitMQ.Client;
+﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text;
 
