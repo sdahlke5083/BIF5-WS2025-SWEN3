@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Paperless.REST.API.Attributes;
 using Paperless.REST.API.Models.BaseResponse;
+using Paperless.REST.BLL.Storage;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Uploads.Models;
 using System.ComponentModel.DataAnnotations;
@@ -15,14 +16,17 @@ namespace Paperless.REST.API.Controllers
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
         private readonly IUploadService _uploadService;
+        private readonly IFileStorageService? _fileStorageService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UploadsController"/> class.
         /// </summary>
         /// <param name="uploadService">The service responsible for handling upload operations. This parameter cannot be null.</param>
-        public UploadsController(IUploadService uploadService)
+        /// <param name="fileStorage">Optional file storage. If not provided, controller falls back to filesystem writes using IUploadService.Path.</param>
+        public UploadsController(IUploadService uploadService, IFileStorageService fileStorageService)
         {
-            _uploadService = uploadService;
+            _uploadService = uploadService ?? throw new ArgumentNullException(nameof(uploadService));
+            _fileStorageService = fileStorageService ?? throw new ArgumentNullException(nameof(fileStorageService));
         }
 
         /// <summary>
@@ -52,6 +56,7 @@ namespace Paperless.REST.API.Controllers
         {
             using var cancelTokenSource = new CancellationTokenSource();
             var cancelToken = cancelTokenSource.Token;
+
             var fileInfos = (files ?? new List<IFormFile>())
                 .Select(f => new UploadFile(f.FileName, f.ContentType, f.Length))
                 .ToList()
@@ -59,38 +64,65 @@ namespace Paperless.REST.API.Controllers
 
             _logger.Debug($"Received {fileInfos.Count} file(s) at /v1/uploads");
 
-            var validation = await _uploadService.ValidateAsync(fileInfos, metadata, cancelToken);
+            var validation = await _uploadService
+                .ValidateAsync(fileInfos, metadata, cancelToken)
+                .ConfigureAwait(false);
 
-            if(validation.Success is false)
+            if (!validation.Success)
             {
-                var problemResponse = new ProblemResponse 
-                { 
+                var problemResponse = new ProblemResponse
+                {
                     Title = "Upload validation failed",
                     Status = StatusCodes.Status400BadRequest,
                     Detail = string.Join(" | ", validation.Errors),
-                    Instance = HttpContext?.Request.Path ?? String.Empty
+                    Instance = HttpContext?.Request.Path ?? string.Empty
                 };
+
+                _logger.Warn($"Upload validation failed: {problemResponse.Detail}");
                 return BadRequest(problemResponse);
             }
 
-            _logger.Debug($"Number of Uploads accepted: {validation.AcceptedCount} file(s)");
-            var basePath = _uploadService.Path;
-            Directory.CreateDirectory(basePath); // Ensure the directory exists
+            _logger.Debug($"Number of uploads accepted: {validation.AcceptedCount} file(s)");
+
             var saved = new List<string>();
-            foreach (var formFile in files)
+
+            // NEU: Speicherung in MinIO via IFileStorageService
+            for (var index = 0; index < files.Count; index++)
             {
-                if (formFile.Length > 0)
+                var formFile = files[index];
+
+                if (formFile.Length <= 0)
+                    continue;
+
+                var originalFileName = Path.GetFileName(formFile.FileName);
+
+                // Dokument-ID (wenn vorhanden aus Validation) für den Objektpfad verwenden
+                Guid documentId = Guid.NewGuid();
+                if (validation.DocumentIds is { Count: > 0 } && index < validation.DocumentIds.Count)
                 {
-                    var targetPath = Path.Combine(basePath, formFile.FileName);
-                    await using (var stream = new FileStream(targetPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                    {
-                        await formFile.CopyToAsync(stream, cancelToken);
-                    }
-                    saved.Add(Path.GetFileName(targetPath));
-                    _logger.Info($"Saved file '{formFile.FileName}' as '{targetPath}'");
+                    documentId = validation.DocumentIds[index];
                 }
+
+                var objectName = $"{documentId:D}/{originalFileName}";
+
+                await using var stream = formFile.OpenReadStream();
+                await _fileStorageService.SaveFileAsync(
+                    objectName,
+                    stream,
+                    formFile.Length,
+                    formFile.ContentType,
+                    cancelToken).ConfigureAwait(false);
+
+                saved.Add(originalFileName);
+                _logger.Info($"Uploaded file '{originalFileName}' as object '{objectName}' in MinIO.");
             }
-            return Ok(new { accepted = validation.AcceptedCount , saved, guids = validation.DocumentIds }); // Return HTTP 200
+
+            return Ok(new
+            {
+                accepted = validation.AcceptedCount,
+                saved,
+                guids = validation.DocumentIds
+            });
         }
     }
 }

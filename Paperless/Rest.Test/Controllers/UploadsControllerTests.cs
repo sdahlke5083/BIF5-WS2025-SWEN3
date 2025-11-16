@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework.Legacy;
 using Paperless.REST.API.Controllers;
+using Paperless.REST.BLL.Storage;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Uploads.Models;
 
@@ -26,118 +27,114 @@ namespace Rest.Test.Controllers
         [Test]
         public async Task UploadFiles_WhenValidationSucceeds_SavesFilesAndReturnsOk()
         {
-            var tempRoot = Path.Combine(Path.GetTempPath(), "paperless-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(tempRoot);
+            var uploadService = new Mock<IUploadService>();
+            var fileStorage = new Mock<IFileStorageService>();
 
-            try
+            var validation = new UploadValidationResult
             {
-                var files = new List<IFormFile>
-                {
-                    CreateFormFile("doc1.txt", "Hello 1"),
-                    CreateFormFile("doc2.txt", "Hello 2")
-                };
+                AcceptedCount = 2,
+                DocumentIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() }
+            };
 
-                var uploadService = new Mock<IUploadService>();
+            uploadService
+                .Setup(s => s.ValidateAsync(
+                    It.IsAny<IReadOnlyCollection<UploadFile>>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(validation);
 
-                var okValidation = new UploadValidationResult
-                {
-                    AcceptedCount = 2
-                };
+            fileStorage
+                .Setup(s => s.SaveFileAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<long>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((string objectName, Stream _, long _, string? _, CancellationToken _) => objectName);
 
-                uploadService
-                    .SetupGet(s => s.Path)
-                    .Returns(tempRoot);
+            var sut = new UploadsController(uploadService.Object, fileStorage.Object);
 
-                uploadService
-                    .Setup(s => s.ValidateAsync(
-                        It.IsAny<IReadOnlyCollection<UploadFile>>(),
-                        It.IsAny<string?>(),
-                        It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(okValidation);
-
-                var sut = new UploadsController(uploadService.Object);
-
-                var result = await sut.UploadFiles(files, metadata: "{\"key\":\"value\"}");
-
-                var ok = result as OkObjectResult;
-                Assert.That(ok, Is.Not.Null, "Expected Ok on successful validation");
-
-                var payload = ok!.Value!;
-                var t = payload.GetType();
-
-                var accepted = (int)t.GetProperty("accepted")!.GetValue(payload)!;
-                var saved = ((IEnumerable<string>)t.GetProperty("saved")!.GetValue(payload)!).ToList();
-
-                Assert.That(accepted, Is.EqualTo(2));
-                CollectionAssert.AreEquivalent(new[] { "doc1.txt", "doc2.txt" }, saved);
-
-                foreach (var fileName in saved)
-                {
-                    var path = Path.Combine(tempRoot, fileName);
-                    Assert.That(File.Exists(path), Is.True, $"Expected written file: {path}");
-                }
-
-                uploadService.Verify(s => s.ValidateAsync(
-                        It.IsAny<IReadOnlyCollection<UploadFile>>(),
-                        It.IsAny<string?>(),
-                        It.IsAny<CancellationToken>()),
-                    Times.Once);
-            }
-            finally
+            var files = new List<IFormFile>
             {
-                if (Directory.Exists(tempRoot))
-                    Directory.Delete(tempRoot, recursive: true);
-            }
+                CreateFormFile("doc1.txt", "Hello 1"),
+                CreateFormFile("doc2.txt", "Hello 2")
+            };
+
+            var result = await sut.UploadFiles(files, metadata: "{\"key\":\"value\"}");
+
+            var ok = result as OkObjectResult;
+            Assert.That(ok, Is.Not.Null, "Expected Ok on successful validation");
+
+            var payload = ok!.Value!;
+            var t = payload.GetType();
+
+            var accepted = (int)t.GetProperty("accepted")!.GetValue(payload)!;
+            var saved = ((IEnumerable<string>)t.GetProperty("saved")!.GetValue(payload)!).ToList();
+            var guids = (IEnumerable<Guid>?)t.GetProperty("guids")!.GetValue(payload);
+
+            ClassicAssert.AreEqual(2, accepted);
+            CollectionAssert.AreEquivalent(new[] { "doc1.txt", "doc2.txt" }, saved);
+            Assert.That(guids, Is.Not.Null);
+
+            fileStorage.Verify(s => s.SaveFileAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<long>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            uploadService.Verify(s => s.ValidateAsync(
+                    It.IsAny<IReadOnlyCollection<UploadFile>>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Test]
         public async Task UploadFiles_WithEmptyList_ReturnsOkWithZeroSaved()
         {
-            var tempRoot = Path.Combine(Path.GetTempPath(), "paperless-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(tempRoot);
+            var uploadService = new Mock<IUploadService>();
+            var fileStorage = new Mock<IFileStorageService>();
 
-            try
+            var validation = new UploadValidationResult
             {
-                var files = new List<IFormFile>(); // niemals null
+                AcceptedCount = 0,
+                DocumentIds = new List<Guid>()
+            };
 
-                var uploadService = new Mock<IUploadService>();
+            uploadService
+                .Setup(s => s.ValidateAsync(
+                    It.IsAny<IReadOnlyCollection<UploadFile>>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(validation);
 
-                var okValidationEmpty = new UploadValidationResult
-                {
-                    AcceptedCount = 0
-                };
+            var sut = new UploadsController(uploadService.Object, fileStorage.Object);
 
-                uploadService.SetupGet(s => s.Path).Returns(tempRoot);
-                uploadService
-                    .Setup(s => s.ValidateAsync(
-                        It.IsAny<IReadOnlyCollection<UploadFile>>(),
-                        It.IsAny<string?>(),
-                        It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(okValidationEmpty);
+            var files = new List<IFormFile>(); // leere Liste
 
-                var sut = new UploadsController(uploadService.Object);
+            var result = await sut.UploadFiles(files, metadata: null);
 
-                var result = await sut.UploadFiles(files, metadata: null);
+            var ok = result as OkObjectResult;
+            Assert.That(ok, Is.Not.Null, "Expected Ok for empty list when validation succeeds");
 
-                var ok = result as OkObjectResult;
-                Assert.That(ok, Is.Not.Null);
+            var payload = ok!.Value!;
+            var t = payload.GetType();
 
-                var payload = ok!.Value!;
-                var t = payload.GetType();
+            var accepted = (int)t.GetProperty("accepted")!.GetValue(payload)!;
+            var saved = ((IEnumerable<string>)t.GetProperty("saved")!.GetValue(payload)!).ToList();
 
-                var accepted = (int)t.GetProperty("accepted")!.GetValue(payload)!;
-                var saved = ((IEnumerable<string>)t.GetProperty("saved")!.GetValue(payload)!).ToList();
+            Assert.That(accepted, Is.EqualTo(0));
+            Assert.That(saved, Is.Empty);
 
-                Assert.That(accepted, Is.EqualTo(0));
-                Assert.That(saved, Is.Empty);
-
-                Assert.That(Directory.EnumerateFiles(tempRoot).Any(), Is.False);
-            }
-            finally
-            {
-                if (Directory.Exists(tempRoot))
-                    Directory.Delete(tempRoot, recursive: true);
-            }
+            fileStorage.Verify(s => s.SaveFileAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<Stream>(),
+                    It.IsAny<long>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
     }
 }

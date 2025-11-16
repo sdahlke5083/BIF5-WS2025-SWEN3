@@ -2,6 +2,13 @@
 
 # Diese Stufe wird verwendet, wenn sie von VS im Schnellmodus ausgeführt wird (Standardeinstellung für Debugkonfiguration).
 FROM mcr.microsoft.com/dotnet/runtime:9.0 AS base
+# Install dependencies
+RUN apt-get update && \
+	apt-get install -y tesseract-ocr \
+	  tesseract-ocr-eng \
+	  libtesseract-dev \
+      libleptonica-dev && \
+	rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
 

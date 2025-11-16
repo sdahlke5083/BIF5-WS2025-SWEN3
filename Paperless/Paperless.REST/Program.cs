@@ -1,28 +1,36 @@
-using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Paperless.REST.API.Middleware;
+using Paperless.REST.BLL.Models;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Worker;
 using Paperless.REST.DAL;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
-using RabbitMQ.Client;
 using System.Reflection;
-using Paperless.REST.BLL.Models;
+using Paperless.REST.BLL.Storage;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
+builder.UseNLog();
 
 var services = builder.Services;
 
 // Add configuration
 services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("Paperless").GetSection("Queue"));
+
+// MinIO Storage configuration
+services.Configure<MinioStorageOptions>(
+    builder.Configuration
+        .GetSection("Paperless")
+        .GetSection("Storage")
+        .GetSection("Minio"));
+
+services.AddSingleton<IFileStorageService, MinioFileStorageService>();
+
 
 // Add services to the container.
 services.AddControllers().AddJsonOptions(x =>
@@ -46,8 +54,7 @@ services.AddScoped<IUploadService>(sp =>
 {
     var repo = sp.GetRequiredService<IDocumentRepository>();
     var config = sp.GetRequiredService<IConfiguration>();
-    var rabbitmq = sp.GetRequiredService<IDocumentEventPublisher>();
-    var service = new UploadService(repo, rabbitmq);
+    var service = new UploadService(repo);
     service.Path = config.GetSection("Paperless").GetSection("Path").Value ?? "/.data/Files"; //TODO: fix this
     return service;
 });
