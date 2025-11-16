@@ -1,11 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Paperless.REST.API.Attributes;
 using Paperless.REST.API.Models.BaseResponse;
+using Paperless.REST.BLL.Storage;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Uploads.Models;
 using System.ComponentModel.DataAnnotations;
-using Paperless.REST.BLL.Storage;
-using Minio;
 
 namespace Paperless.REST.API.Controllers
 {

@@ -21,7 +21,7 @@ namespace Paperless.REST.BLL.Worker
             _queueOptions = options.Value;
         }
 
-        public async Task PublishDocumentUploadedAsync(Guid documentId, CancellationToken ct = default)
+        public async Task PublishDocumentUploadedAsync(string documentId, CancellationToken ct = default)
         {
             var _channel = await _rabbitMqConnection.CreateChannelAsync(ct);
 
