@@ -54,8 +54,7 @@ services.AddScoped<IUploadService>(sp =>
 {
     var repo = sp.GetRequiredService<IDocumentRepository>();
     var config = sp.GetRequiredService<IConfiguration>();
-    var rabbitmq = sp.GetRequiredService<IDocumentEventPublisher>();
-    var service = new UploadService(repo, rabbitmq);
+    var service = new UploadService(repo);
     service.Path = config.GetSection("Paperless").GetSection("Path").Value ?? "/.data/Files"; //TODO: fix this
     return service;
 });

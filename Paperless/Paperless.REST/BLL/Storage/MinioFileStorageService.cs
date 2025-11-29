@@ -2,6 +2,7 @@
 using Minio;
 using Minio.DataModel.Args;
 using Paperless.REST.BLL.Exceptions;
+using Paperless.REST.BLL.Worker;
 
 namespace Paperless.REST.BLL.Storage
 {
@@ -13,14 +14,16 @@ namespace Paperless.REST.BLL.Storage
         private readonly IMinioClient _client;
         private readonly MinioStorageOptions _options;
         private readonly ILogger<MinioFileStorageService> _logger;
+        private readonly IDocumentEventPublisher _documentEventPublisher;
 
         public MinioFileStorageService(
             IOptions<MinioStorageOptions> options,
-            ILogger<MinioFileStorageService> logger)
+            ILogger<MinioFileStorageService> logger, IDocumentEventPublisher documentEventPublisher)
         {
             if (options is null) throw new ArgumentNullException(nameof(options));
             _options = options.Value;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _documentEventPublisher = documentEventPublisher;
 
             _client = new MinioClient()
                 .WithEndpoint(_options.Endpoint)
@@ -80,6 +83,9 @@ namespace Paperless.REST.BLL.Storage
                     objectName, size, _options.BucketName);
 
                 // Wir geben den objectName zurück – der ist der "Key" im Object Store.
+                
+                // fire up rabbitmq event to process the document
+                _documentEventPublisher.PublishDocumentUploadedAsync(objectName).GetAwaiter().GetResult();
                 return objectName;
             }
             catch (Exception ex)

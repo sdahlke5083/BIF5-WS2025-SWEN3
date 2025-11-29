@@ -11,6 +11,6 @@
         /// <param name="documentId">The unique identifier of the uploaded document.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests. The default value is <see cref="CancellationToken.None"/>.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        Task PublishDocumentUploadedAsync(Guid documentId, CancellationToken cancellationToken = default);
+        Task PublishDocumentUploadedAsync(string documentId, CancellationToken cancellationToken = default);
     }
 }
