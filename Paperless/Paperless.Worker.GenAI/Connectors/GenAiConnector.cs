@@ -1,5 +1,6 @@
-﻿using NLog;
-using System.Net.Http;
+﻿using System.Net.Http;
+using NLog;
+using Paperless.Worker.GenAI.Exceptions;
 
 namespace Paperless.Worker.GenAI.Connectors
 {
@@ -20,7 +21,7 @@ namespace Paperless.Worker.GenAI.Connectors
 
             // kommen aus .env und docker-compose
             _apiKey = Environment.GetEnvironmentVariable("GENAI_API_KEY") ?? string.Empty;
-            _model = Environment.GetEnvironmentVariable("GENAI_MODEL") ?? "gemini-1.5-pro";
+            _model = Environment.GetEnvironmentVariable("GENAI_MODEL") ?? "gemini-2.5-pro";
         }
 
         /// <summary>
@@ -29,6 +30,29 @@ namespace Paperless.Worker.GenAI.Connectors
         /// </summary>
         public async Task<string> SummarizeAsync(string textToSummarize, CancellationToken cancellationToken)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.Debug("SummarizeAsync wurde aufgerufen, aber der CancellationToken ist bereits abgebrochen.");
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            if (string.IsNullOrWhiteSpace(_apiKey))
+            {
+                _logger.Error("GENAI_API_KEY ist nicht gesetzt oder leer.");
+                throw new GenAiConfigurationException("GENAI_API_KEY is missing. GenAI worker cannot call the API.");
+            }
+
+            if (string.IsNullOrWhiteSpace(_model))
+            {
+                _logger.Error("GENAI_MODEL ist nicht gesetzt oder leer.");
+                throw new GenAiConfigurationException("GENAI_MODEL is missing. GenAI worker cannot call the API.");
+            }
+
+            if (string.IsNullOrWhiteSpace(textToSummarize))
+            {
+                throw new ArgumentException("Text to summarize must not be null or empty.", nameof(textToSummarize));
+            }
+
             if (string.IsNullOrWhiteSpace(_apiKey))
             {
                 _logger.Warn("GENAI_API_KEY is not configured. Returning fallback summary.");
