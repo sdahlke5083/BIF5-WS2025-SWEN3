@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using NLog;
 using Paperless.Worker.GenAI.Connectors;
 using Paperless.Worker.GenAI.RabbitMQ;
@@ -58,19 +57,19 @@ namespace Paperless.Worker.GenAI
         /// </summary>
         private async Task HandleMessageAsync(string jsonMessage)
         {
+            _logger.Info("[GenAI] Worker started.");
+
             try
             {
-                _logger.Info($"[GenAI] Received message: {jsonMessage}");
+                var dummy = Environment.GetEnvironmentVariable("This is a dummy OCR text for E2E test.")
+                          ?? "This is a dummy OCR text. Please summarize in 3 bullets.";
 
-                // Hier nur ein Stub: Wir rufen den GenAiConnector "falsch" an,
-                // er simuliert nur eine Antwort.
-                var summary = await _genAiConnector.SummarizeAsync(jsonMessage, CancellationToken.None);
-
-                _logger.Info($"[GenAI] Summary created (length = {summary?.Length ?? 0}).");
+                var summary = await _genAiConnector.SummarizeAsync(dummy, CancellationToken.None);
+                _logger.Info($"[GenAI] SmokeTest summary:\n{summary}");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "[GenAI] Error while processing message.");
+                _logger.Error(ex, "[GenAI] SmokeTest failed.");
             }
         }
     }

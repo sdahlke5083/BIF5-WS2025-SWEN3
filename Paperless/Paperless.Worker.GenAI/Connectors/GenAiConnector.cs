@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using Google.GenAI;
+using Google.GenAI.Types;
 using NLog;
 using Paperless.Worker.GenAI.Exceptions;
 
@@ -20,8 +21,8 @@ namespace Paperless.Worker.GenAI.Connectors
             _httpClient = new HttpClient();
 
             // kommen aus .env und docker-compose
-            _apiKey = Environment.GetEnvironmentVariable("GENAI_API_KEY") ?? string.Empty;
-            _model = Environment.GetEnvironmentVariable("GENAI_MODEL") ?? "gemini-2.5-pro";
+            _apiKey = System.Environment.GetEnvironmentVariable("GENAI_API_KEY") ?? string.Empty;
+            _model = System.Environment.GetEnvironmentVariable("GENAI_MODEL") ?? "gemini-2.5-pro";
         }
 
         /// <summary>
@@ -53,17 +54,28 @@ namespace Paperless.Worker.GenAI.Connectors
                 throw new ArgumentException("Text to summarize must not be null or empty.", nameof(textToSummarize));
             }
 
-            if (string.IsNullOrWhiteSpace(_apiKey))
+            var client = new Client(apiKey: _apiKey);
+
+            var prompt = $"Summarize the following text in 3 concise bullet points:\n{textToSummarize}";
+
+            try
             {
-                _logger.Warn("GENAI_API_KEY is not configured. Returning fallback summary.");
-                return "[GenAI disabled: missing API key]";
+                var response = await client.Models.GenerateContentAsync(
+                    model: _model,
+                    contents: prompt);
+
+                var text = response?.Candidates?.FirstOrDefault()
+                                     ?.Content?.Parts?.FirstOrDefault()?.Text;
+
+                return string.IsNullOrWhiteSpace(text)
+                    ? "[GenAI returned empty response]"
+                    : text.Trim();
             }
-
-            // Hier nur ein Fake-Call.
-            _logger.Info($"Simulating GenAI summary for model '{_model}', text length = {textToSummarize?.Length ?? 0}.");
-
-            await Task.Delay(10, cancellationToken); // kleine künstliche Verzögerung
-            return $"[Summary placeholder for text length {textToSummarize?.Length ?? 0}]";
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "[GenAI] API call failed.");
+                throw new GenAiApiException("Gemini API call failed", ex);
+            }
         }
     }
 }
