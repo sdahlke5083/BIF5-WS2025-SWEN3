@@ -1,4 +1,4 @@
-version: '3.8'
+﻿version: '3.8'
 name: paperless-swen3
 
 services:
@@ -52,7 +52,7 @@ services:
       context: .
       dockerfile: Paperless.Worker.GenAI/Dockerfile
     environment:
-      # API-Key und Modell f�r den GenAI-Provider (Google Gemini)
+      # API-Key und Modell für den GenAI-Provider (Google Gemini)
       - GENAI_API_KEY=${GENAI_API_KEY}
       - GENAI_MODEL=${GENAI_MODEL}
       - GENAI_PROVIDER=GoogleGemini
