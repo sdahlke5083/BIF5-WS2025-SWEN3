@@ -1,5 +1,4 @@
-version: '3.8'
-name: paperless-swen3
+﻿name: paperless-swen3
 
 services:
   # REST API service
@@ -7,12 +6,27 @@ services:
     image: "${DOCKER_REGISTRY}paperlessrest"
     container_name: paperless-rest
     build:
-      context: .
-      dockerfile: Paperless.REST/Dockerfile
+      context: ./Paperless.REST
+      dockerfile: Dockerfile
     ports:
       - "8081:8081"
     volumes:
       - ./.data/Files:/.data/Files:rw
+    environment:
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      # Publish to exchange; REST doesn't need a consumer queue but we keep QUEUE for backward compatibility
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
+      - RABBITMQ_QUEUE=${RABBITMQ_REST_QUEUE}
+    healthcheck:
+        test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
     depends_on:
       - paperless.db
       - paperless.rabbitmq
@@ -23,10 +37,10 @@ services:
     image: "${DOCKER_REGISTRY}paperlessui"
     container_name: paperless-ui
     build:
-      context: . 
-      dockerfile: Paperless.UI/Dockerfile
+      context: ./Paperless.UI
+      dockerfile: Dockerfile
     ports:
-      - "80:8080"
+      #- "80:8080"
       - "443:8081"
     depends_on:
       - paperless.rest
@@ -36,14 +50,52 @@ services:
     image: "${DOCKER_REGISTRY}paperlessocrworker"
     container_name: paperless-ocr-worker
     build:
-      context: .
-      dockerfile: Paperless.Worker.OCR/Dockerfile
+      context: ./Paperless.Worker.OCR
+      dockerfile: Dockerfile
     volumes:
       - ./.data/paperless-tesseract/tessdata:/tessdata:rw
+    environment:
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      # Consumer queue name for OCR worker
+      - RABBITMQ_QUEUE=${RABBITMQ_OCR_QUEUE}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
     depends_on:
       - paperless.db
       - paperless.rabbitmq
 
+  # GenAI Worker service for generating document summaries
+  paperless.worker.genai:
+    image: "${DOCKER_REGISTRY}paperlessgenaiworker"
+    container_name: paperless-genai-worker
+    build:
+      context: .
+      dockerfile: Paperless.Worker.GenAI/Dockerfile
+    environment:
+      # API-Key und Modell für den GenAI-Provider (Google Gemini)
+      - GENAI_API_KEY=${GENAI_API_KEY}
+      - GENAI_MODEL=${GENAI_MODEL}
+      - GENAI_PROVIDER=GoogleGemini
+      # RabbitMQ settings so GenAI worker can connect
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      # Consumer queue name for GenAI worker
+      - RABBITMQ_QUEUE=${RABBITMQ_GENAI_QUEUE}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
+      # REST API config
+      - REST_API_URL=${REST_API_URL}
+    depends_on:
+      - paperless.db
+      - paperless.rabbitmq
+
+  # --------------------------- Supporting Services ---------------------------
+  
   # Database service using basic PostgreSQL docker image
   paperless.db:
     image: postgres:15
@@ -83,13 +135,19 @@ services:
     container_name: paperless-rabbitmq
     restart: unless-stopped
     ports:
-      - 9093:15672
-      - 5672:5672
+      - 9093:15672 # management UI
+      #- 5672:5672 # queue port
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
     volumes:
       - ./.data/paperless-rabbitmq:/var/lib/rabbitmq:rw
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   # MinIO object storage used for file storage
   paperless.minio:
@@ -97,7 +155,7 @@ services:
     container_name: paperless-minio
     restart: unless-stopped
     ports:
-      - 9000:9000    # MinIO API
+      #- 9000:9000    # MinIO API
       - 9090:9001    # MinIO Console
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER}

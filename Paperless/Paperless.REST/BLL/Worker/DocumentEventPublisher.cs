@@ -25,18 +25,24 @@ namespace Paperless.REST.BLL.Worker
         {
             var _channel = await _rabbitMqConnection.CreateChannelAsync(ct);
 
+            // create a task message for OCR
             var message = new
             {
-                schema = "paperless.document_uploaded.v1",
+                schema = "paperless.task.v1",
                 document_id = documentId
             };
             var messageBody = JsonSerializer.SerializeToUtf8Bytes(message, _jsonOptions);
 
+            // publish to configured exchange using routing key 'ocr'
+            var exchange = _queueOptions.ExchangeName ?? "tasks";
+            var routingKey = "ocr";
+
             await _channel.BasicPublishAsync(
-                exchange: string.Empty,
-                routingKey: _queueOptions.QueueName,
+                exchange: exchange,
+                routingKey: routingKey,
                 body: messageBody);
-            _logger.Debug($"Published document_uploaded event for document ID {documentId} to RabbitMQ.");
+
+            _logger.Debug($"Published document_uploaded task for document ID {documentId} to exchange '{exchange}' with routingKey '{routingKey}'.");
 
         }
     }

@@ -7,15 +7,21 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
+# Default RabbitMQ environment variables (can be overridden by docker-compose or runtime)
+ENV RABBITMQ_HOST=paperless-rabbitmq \
+    RABBITMQ_PORT=5672 \
+    RABBITMQ_USER=paperless \
+    RABBITMQ_PASS=paperless
+
 
 # Diese Stufe wird zum Erstellen des Dienstprojekts verwendet.
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Paperless.UI.csproj", "."]
+COPY ["Paperless.UI.csproj", "./"]
 RUN dotnet restore "./Paperless.UI.csproj"
 COPY . .
-WORKDIR "/src/."
+WORKDIR "/src"
 RUN dotnet build "./Paperless.UI.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Diese Stufe wird verwendet, um das Dienstprojekt zu veröffentlichen, das in die letzte Phase kopiert werden soll.

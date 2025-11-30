@@ -25,17 +25,59 @@ namespace Paperless.REST.BLL.Worker
         // IHostedService - Establish connection when the host starts
         public async Task StartAsync(CancellationToken cancellationToken)
         {
+            if (_options == null)
+                throw new InvalidOperationException("RabbitMQ options have not been set.");
+
             var factory = new ConnectionFactory
             {
-                HostName = _options!.ServerAddress,
-                UserName = "paperless",
-                Password = "paperless", // TODO HIDE CREDENTIALS
+                HostName = _options.ServerAddress,
+                Port = _options.Port,
+                UserName = _options.UserName,
+                Password = _options.Password,
                 AutomaticRecoveryEnabled = true,
                 RequestedConnectionTimeout = TimeSpan.FromSeconds(10)
             };
 
             _logger.Debug("Attempting to connect to RabbitMQ at {ServerAddress}", _options.ServerAddress);
-            _connection = await factory.CreateConnectionAsync();
+
+            // Retry loop with exponential backoff. Keep trying until cancellation is requested so services don't crash
+            var attempt = 0;
+            var delayMs = 2000;
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    attempt++;
+                    _logger.Debug("RabbitMQ connect attempt {Attempt}", attempt);
+                    // pass cancellation token so connect can be cancelled when host is shutting down
+                    _connection = await factory.CreateConnectionAsync(cancellationToken);
+
+                    _logger.Info("Successfully connected to RabbitMQ on attempt {Attempt}", attempt);
+                    return;
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.Debug("RabbitMQ connection attempt cancelled");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Failed to connect to RabbitMQ on attempt {Attempt}. Will retry in {Delay}ms", attempt, delayMs);
+                    try
+                    {
+                        await Task.Delay(delayMs, cancellationToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+
+                    // exponential backoff, cap at 30s
+                    delayMs = Math.Min(delayMs * 2, 30_000);
+                }
+            }
+
+            _logger.Error("Could not establish RabbitMQ connection before cancellation/shutdown was requested.");
         }
 
         // IHostedService - cleanup when the host stops
@@ -86,7 +128,13 @@ namespace Paperless.REST.BLL.Worker
                 if (_options == null)
                     throw new InvalidOperationException("RabbitMQ options have not been set.");
 
-                await _channel.QueueDeclareAsync(queue: _options.QueueName, durable: _options.Durable, autoDelete: false, exclusive: false, arguments: null, cancellationToken: ct);
+                // Declare configured exchange
+                if (!string.IsNullOrWhiteSpace(_options.ExchangeName))
+                {
+                    await _channel.ExchangeDeclareAsync(exchange: _options.ExchangeName, type: _options.ExchangeType ?? "direct", durable: _options.Durable, autoDelete: false, arguments: null, cancellationToken: ct);
+                }
+
+                // No queue declarations here; per-worker consumers declare and bind their own queues
             }
             return _channel;
         }

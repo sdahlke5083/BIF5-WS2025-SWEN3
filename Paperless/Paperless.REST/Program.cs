@@ -19,8 +19,18 @@ builder.UseNLog();
 
 var services = builder.Services;
 
-// Add configuration
-services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("Paperless").GetSection("Queue"));
+// Configure RabbitMQ options from environment variables (fallback to sensible defaults)
+services.Configure<RabbitMqOptions>(opts =>
+{
+    opts.ServerAddress = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "paperless-rabbitmq";
+    opts.Port = int.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out var p) ? p : 5672;
+    opts.UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "paperless";
+    opts.Password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless";
+    // Use the configured exchange name for routing
+    opts.ExchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
+    opts.ExchangeType = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE_TYPE") ?? "direct";
+    opts.Durable = true;
+});
 
 // MinIO Storage configuration
 services.Configure<MinioStorageOptions>(
@@ -101,7 +111,6 @@ services.AddSwaggerGen(options =>
     });
     options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory,$"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
 });
-
 
 var app = builder.Build();
 

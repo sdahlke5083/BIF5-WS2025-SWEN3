@@ -4,6 +4,7 @@ using NLog;
 using Paperless.Worker.OCR.Connectors;
 using Paperless.Worker.OCR.RabbitMQ;
 using System.Text.Json;
+using RabbitMQ.Client;
 
 namespace Paperless.Worker.OCR
 {
@@ -13,6 +14,7 @@ namespace Paperless.Worker.OCR
         private OcrConsumer _consumer;
         private readonly MinioConnector _minio;
         private readonly TesseractConnector _tesseract;
+        private IChannel? _publishChannel; // for forwarding to genai
 
         public OcrWorker(IOptions<MinioStorageOptions> options)
         {
@@ -30,6 +32,31 @@ namespace Paperless.Worker.OCR
         {
             _logger.Info("Starting OCR Worker...");
             await _consumer.SetupAsync(cancellationToken);
+
+            // create a connection/channel for publishing results to the shared exchange
+            try
+            {
+                var factory = new ConnectionFactory()
+                {
+                    HostName = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "paperless-rabbitmq",
+                    Port = int.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out var p) ? p : 5672,
+                    UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "paperless",
+                    Password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless",
+                    AutomaticRecoveryEnabled = true
+                };
+
+                var conn = await factory.CreateConnectionAsync(cancellationToken);
+                _publishChannel = await conn.CreateChannelAsync();
+
+                // ensure exchange exists
+                var exchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
+                await _publishChannel.ExchangeDeclareAsync(exchange: exchangeName, type: "direct", durable: true, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Failed to create publisher channel for OCR worker");
+            }
+
             await base.StartAsync(cancellationToken);
         }
 
@@ -39,7 +66,7 @@ namespace Paperless.Worker.OCR
             await _consumer.ExecuteAsync(stoppingToken);
         }
 
-        // Verarbeitung der empfangenen Nachricht: MinIO holen -> Tesseract OCR -> loggen
+        // Verarbeitung der empfangenen Nachricht: MinIO holen -> Tesseract OCR -> loggen -> weitergeben
         private async Task HandleMessageAsync(string json)
         {
             _logger.Debug("Rohnachricht erhalten: {0}", json);
@@ -65,6 +92,40 @@ namespace Paperless.Worker.OCR
                 var ocrResult = await _tesseract.RunOcrAsync(fileBytes);
 
                 _logger.Info($"OCR result for {key}: {ocrResult}");
+
+                // derive document id (GUID) from the key by taking the first path segment
+                string documentIdSegment = key;
+                var segments = key.Split(new[] {'/', '\\'}, StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length > 0)
+                {
+                    documentIdSegment = segments[0];
+                }
+
+                // If it's a GUID, normalize; otherwise keep as-is but log warning
+                if (!Guid.TryParse(documentIdSegment, out var _))
+                {
+                    _logger.Warn("Extracted document id segment '{0}' is not a valid GUID. Sending segment as-is.", documentIdSegment);
+                }
+
+                // Publish result to exchange for GenAI: use routingKey 'genai' and include ocr_text and document_id (GUID only)
+                if (_publishChannel is not null)
+                {
+                    var exchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
+                    var routingKey = "genai";
+                    var message = new
+                    {
+                        schema = "paperless.task.v1",
+                        document_id = documentIdSegment,
+                        ocr_text = ocrResult
+                    };
+                    var body = JsonSerializer.SerializeToUtf8Bytes(message, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    await _publishChannel.BasicPublishAsync(exchange: exchangeName, routingKey: routingKey, body: body);
+                    _logger.Info($"Published GenAI task for document {documentIdSegment} to exchange {exchangeName} with routingKey {routingKey}");
+                }
+                else
+                {
+                    _logger.Warn("Publish channel not available; cannot forward OCR result to GenAI.");
+                }
             }
             catch (FileNotFoundException fnf)
             {
