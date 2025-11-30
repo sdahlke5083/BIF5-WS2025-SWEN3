@@ -24,7 +24,7 @@ namespace Paperless.Worker.OCR.RabbitMQ
             _hostName = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "paperless-rabbitmq";
             _port = int.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out var p) ? p : 5672;
             _username = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "paperless";
-            _password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless"; // TODO HIDE CREDENTIALS
+            _password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless";
             _queueName = Environment.GetEnvironmentVariable("RABBITMQ_QUEUE") ?? "ocr-queue";
             _exchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
         }

@@ -2,6 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Paperless.REST.API.Models.BaseResponse;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using Paperless.REST.DAL.DbContexts;
+using Paperless.REST.API.Models;
+using Paperless.REST.DAL.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Paperless.REST.API.Controllers
 {
@@ -12,6 +16,12 @@ namespace Paperless.REST.API.Controllers
     public class DocumentsController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly PostgressDbContext _db;
+
+        public DocumentsController(PostgressDbContext db)
+        {
+            _db = db;
+        }
 
         /// <summary>
         /// Soft delete a document (move to recycle bin)
@@ -138,10 +148,88 @@ namespace Paperless.REST.API.Controllers
         [Route("/v1/documents/{id}/summaries")]
         //[Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(ListSummaries200Response))]
-        public virtual IActionResult ListSummaries([FromRoute (Name = "id")][Required]Guid id)
+        public virtual async Task<IActionResult> ListSummaries([FromRoute (Name = "id")][Required]Guid id)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var doc = await _db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
+            if (doc is null)
+                return NotFound();
+
+            var summaries = await _db.DocumentSummaries
+                .Where(s => s.DocumentId == id)
+                .OrderByDescending(s => s.CreatedAt)
+                .Select(s => new {
+                    id = s.Id,
+                    createdAt = s.CreatedAt,
+                    model = s.Model,
+                    lengthPresetId = s.LengthPresetId,
+                    content = s.Content
+                })
+                .ToListAsync();
+
+            return Ok(summaries);
+        }
+
+        /// <summary>
+        /// Create a summary for a document (used by internal GenAI workers)
+        /// </summary>
+        [HttpPost]
+        [Route("/v1/documents/{id}/summaries")]
+        public virtual async Task<IActionResult> CreateSummary([FromRoute(Name = "id")][Required] Guid id, [FromBody] SummaryCreateRequest request)
+        {
+            if (request is null || string.IsNullOrWhiteSpace(request.Content))
+                return BadRequest();
+
+            var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == id);
+            if (doc is null)
+                return NotFound();
+
+            // Determine length preset
+            Guid presetId;
+            if (request.LengthPresetId.HasValue)
+            {
+                var exists = await _db.SummaryPresets.AnyAsync(p => p.Id == request.LengthPresetId.Value);
+                if (exists)
+                    presetId = request.LengthPresetId.Value;
+                else
+                    presetId = await EnsureDefaultPresetAsync();
+            }
+            else
+            {
+                presetId = await EnsureDefaultPresetAsync();
+            }
+
+            var summary = new Summary
+            {
+                DocumentId = id,
+                Content = request.Content,
+                CreatedAt = DateTimeOffset.UtcNow,
+                Model = request.Model ?? "genai",
+                LengthPresetId = presetId
+            };
+
+            await _db.DocumentSummaries.AddAsync(summary);
+            await _db.SaveChangesAsync();
+
+            return Created($"/v1/documents/{id}/summaries/{summary.Id}", new { id = summary.Id });
+        }
+
+        private async Task<Guid> EnsureDefaultPresetAsync()
+        {
+            var preset = await _db.SummaryPresets.FirstOrDefaultAsync();
+            if (preset is not null)
+                return preset.Id;
+
+            preset = new SummaryPreset
+            {
+                Name = "default",
+                Description = "Default summary preset",
+                Prompt = "Summarize the given document text in 3 bullet points.",
+                MaxTokens = 250
+            };
+
+            await _db.SummaryPresets.AddAsync(preset);
+            await _db.SaveChangesAsync();
+            return preset.Id;
         }
 
         /// <summary>

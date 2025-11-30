@@ -93,7 +93,21 @@ namespace Paperless.Worker.OCR
 
                 _logger.Info($"OCR result for {key}: {ocrResult}");
 
-                // Publish result to exchange for GenAI: use routingKey 'genai' and include ocr_text
+                // derive document id (GUID) from the key by taking the first path segment
+                string documentIdSegment = key;
+                var segments = key.Split(new[] {'/', '\\'}, StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length > 0)
+                {
+                    documentIdSegment = segments[0];
+                }
+
+                // If it's a GUID, normalize; otherwise keep as-is but log warning
+                if (!Guid.TryParse(documentIdSegment, out var _))
+                {
+                    _logger.Warn("Extracted document id segment '{0}' is not a valid GUID. Sending segment as-is.", documentIdSegment);
+                }
+
+                // Publish result to exchange for GenAI: use routingKey 'genai' and include ocr_text and document_id (GUID only)
                 if (_publishChannel is not null)
                 {
                     var exchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
@@ -101,12 +115,12 @@ namespace Paperless.Worker.OCR
                     var message = new
                     {
                         schema = "paperless.task.v1",
-                        document_id = key,
+                        document_id = documentIdSegment,
                         ocr_text = ocrResult
                     };
                     var body = JsonSerializer.SerializeToUtf8Bytes(message, new JsonSerializerOptions(JsonSerializerDefaults.Web));
                     await _publishChannel.BasicPublishAsync(exchange: exchangeName, routingKey: routingKey, body: body);
-                    _logger.Info($"Published GenAI task for document {key} to exchange {exchangeName} with routingKey {routingKey}");
+                    _logger.Info($"Published GenAI task for document {documentIdSegment} to exchange {exchangeName} with routingKey {routingKey}");
                 }
                 else
                 {

@@ -2,6 +2,7 @@ using NLog;
 using Paperless.Worker.GenAI.Connectors;
 using Paperless.Worker.GenAI.RabbitMQ;
 using System.Text.Json;
+using System.Net.Http.Json;
 
 namespace Paperless.Worker.GenAI
 {
@@ -11,6 +12,8 @@ namespace Paperless.Worker.GenAI
 
         private readonly GenAiConnector _genAiConnector;
         private GenAiConsumer _consumer = null!;
+        private readonly HttpClient _http;
+        private readonly string _restBaseUrl;
 
         public GenAiWorker()
         {
@@ -23,6 +26,22 @@ namespace Paperless.Worker.GenAI
                 // Callback: hierher kommt jede Nachricht aus der Queue
                 OnMessageReceived = HandleMessageAsync
             };
+
+            // Http client to call REST API to store summaries
+            _http = new HttpClient()
+            {
+                Timeout = TimeSpan.FromSeconds(30)
+            };
+            _restBaseUrl = Environment.GetEnvironmentVariable("REST_API_URL") ?? "http://paperless-rest:8080";
+            // set base address for easier calls
+            try
+            {
+                _http.BaseAddress = new Uri(_restBaseUrl);
+            }
+            catch
+            {
+                _logger.Warn("REST_API_URL '{0}' is not a valid URI, falling back to no BaseAddress.", _restBaseUrl);
+            }
         }
 
         public override async Task StartAsync(CancellationToken cancellationToken)
@@ -91,6 +110,81 @@ namespace Paperless.Worker.GenAI
 
                 var summary = await _genAiConnector.SummarizeAsync(ocrText, CancellationToken.None);
                 _logger.Info($"[GenAI] Summary for document:\n{summary}");
+
+                // send summary to REST API
+                var documentId = root.TryGetProperty("document_id", out var idProp) ? idProp.GetString() : null;
+                if (documentId is null)
+                {
+                    _logger.Warn("[GenAI] No document_id present in message; skipping REST upload.");
+                    return;
+                }
+
+                var payload = new
+                {
+                    model = "genai",
+                    lengthPresetId = (Guid?)null,
+                    content = summary
+                };
+
+                var relativeUrl = $"/v1/documents/{documentId}/summaries";
+
+                // Retry with exponential backoff for transient network errors
+                var maxAttempts = 3;
+                var delayMs = 500;
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                {
+                    try
+                    {
+                        HttpResponseMessage resp;
+                        if (_http.BaseAddress != null)
+                            resp = await _http.PostAsJsonAsync(relativeUrl, payload);
+                        else
+                            resp = await _http.PostAsJsonAsync(new Uri(new Uri(_restBaseUrl), relativeUrl), payload);
+
+                        if (resp.IsSuccessStatusCode)
+                        {
+                            _logger.Info($"[GenAI] Successfully stored summary for document {documentId} via REST API.");
+                            break;
+                        }
+
+                        var respText = string.Empty;
+                        try
+                        {
+                            respText = await resp.Content.ReadAsStringAsync();
+                        }
+                        catch { }
+
+                        _logger.Error($"[GenAI] REST API returned status {resp.StatusCode} on attempt {attempt}. Response: {respText}");
+
+                        if (attempt == maxAttempts)
+                        {
+                            _logger.Error($"[GenAI] Giving up after {maxAttempts} attempts.");
+                        }
+                        else
+                        {
+                            await Task.Delay(delayMs);
+                            delayMs *= 2;
+                        }
+                    }
+                    catch (HttpRequestException hre)
+                    {
+                        _logger.Warn(hre, $"[GenAI] Network error while sending summary (attempt {attempt}): {hre.Message}");
+                        if (attempt == maxAttempts)
+                        {
+                            _logger.Error(hre, "[GenAI] Final attempt failed. Giving up.");
+                        }
+                        else
+                        {
+                            await Task.Delay(delayMs);
+                            delayMs *= 2;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Error(ex, $"[GenAI] Unexpected error while sending summary (attempt {attempt}).");
+                        break;
+                    }
+                }
             }
             catch (Exception ex)
             {
