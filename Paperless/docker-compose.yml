@@ -1,4 +1,4 @@
-name: paperless-swen3
+﻿name: paperless-swen3
 
 services:
   # REST API service
@@ -60,9 +60,24 @@ services:
       - paperless.db
       - paperless.rabbitmq
 
+  # GenAI Worker service for generating document summaries
+  paperless.worker.genai:
+    image: "${DOCKER_REGISTRY}paperlessgenaiworker"
+    container_name: paperless-genai-worker
+    build:
+      context: .
+      dockerfile: Paperless.Worker.GenAI/Dockerfile
+    environment:
+      # API-Key und Modell für den GenAI-Provider (Google Gemini)
+      - GENAI_API_KEY=${GENAI_API_KEY}
+      - GENAI_MODEL=${GENAI_MODEL}
+      - GENAI_PROVIDER=GoogleGemini
+    depends_on:
+      - paperless.db
+      - paperless.rabbitmq
 
   # --------------------------- Supporting Services ---------------------------
-
+  
   # Database service using basic PostgreSQL docker image
   paperless.db:
     image: postgres:15
