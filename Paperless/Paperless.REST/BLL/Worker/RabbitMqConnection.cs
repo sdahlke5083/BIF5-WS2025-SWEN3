@@ -31,8 +31,9 @@ namespace Paperless.REST.BLL.Worker
             var factory = new ConnectionFactory
             {
                 HostName = _options.ServerAddress,
-                UserName = "paperless",
-                Password = "paperless", // TODO HIDE CREDENTIALS
+                Port = _options.Port,
+                UserName = _options.UserName,
+                Password = _options.Password,
                 AutomaticRecoveryEnabled = true,
                 RequestedConnectionTimeout = TimeSpan.FromSeconds(10)
             };

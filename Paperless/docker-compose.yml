@@ -17,6 +17,7 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - RABBITMQ_QUEUE=${RABBITMQ_ORC_QUEUE}
     healthcheck:
         test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
         interval: 10s
@@ -55,7 +56,7 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
-      - RABBITMQ_QUEUE=${RABBITMQ_QUEUE}
+      - RABBITMQ_QUEUE=${RABBITMQ_ORC_QUEUE}
     depends_on:
       - paperless.db
       - paperless.rabbitmq
@@ -72,6 +73,12 @@ services:
       - GENAI_API_KEY=${GENAI_API_KEY}
       - GENAI_MODEL=${GENAI_MODEL}
       - GENAI_PROVIDER=GoogleGemini
+      # RabbitMQ settings so GenAI worker can connect
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - RABBITMQ_QUEUE=${RABBITMQ_TASK_QUEUE}
     depends_on:
       - paperless.db
       - paperless.rabbitmq

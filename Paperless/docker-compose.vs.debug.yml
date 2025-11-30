@@ -1,12 +1,23 @@
 services:
   paperless.rest:
+    # misuse of volumes to mount the folders required for debugging because VS
     volumes:
       - ./Paperless.REST:/src/Paperless.REST:ro
 
   paperless.ui:
+    # misuse of volumes to mount the folders required for debugging because VS
     volumes:
      - ./Paperless.UI:/src/Paperless.UI:ro
 
   paperless.worker.ocr:
+    # need root user in debug because of tesseract not finding libtesseract data otherwise
+    user: root
+    # misuse of volumes to mount the folders required for debugging because VS
     volumes:
       - ./Paperless.Worker.OCR:/src/Paperless.Worker.OCR:ro
+    # misuse of healthcheck to create symlinks for debug becaus VS beeing VS
+    healthcheck:
+      test: ["CMD", "sh", "/src/init.sh", "|| exit 0"]
+      interval: 5s
+      timeout: 2s
+      retries: 2

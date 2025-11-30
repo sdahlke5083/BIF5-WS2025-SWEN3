@@ -52,7 +52,7 @@ namespace Paperless.Worker.OCR.RabbitMQ
                     _ch = await _conn.CreateChannelAsync();
 
                     // declare queue (synchronous-like via async API)
-                    await _ch.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
+                    await _ch.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
 
                     Console.WriteLine($"OcrConsumer: connected to RabbitMQ and declared queue '{_queueName}'");
                     return;
