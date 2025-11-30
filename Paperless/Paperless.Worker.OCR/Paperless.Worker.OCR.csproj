@@ -11,7 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="IronOcr" Version="2025.11.31" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Minio" Version="7.0.0" />
     <PackageReference Include="NLog.Extensions.Logging" Version="6.1.0" />

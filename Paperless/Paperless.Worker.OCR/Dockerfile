@@ -16,7 +16,6 @@ ENV RABBITMQ_HOST=paperless-rabbitmq \
 USER root
 RUN apt-get update && \
 	apt-get install -y tesseract-ocr \
-	  tesseract-ocr-eng \
 	  libtesseract-dev \
       libleptonica-dev && \
 	rm -rf /var/lib/apt/lists/*
@@ -25,7 +24,7 @@ RUN ln -s /usr/lib/x86_64-linux-gnu/libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.s
 
 WORKDIR /app/x64
 
-RUN ln -s /usr/lib/x86_64-linux-gnu/liblept.so.5 /app/x64/libleptonica-1.82.1.so
+RUN ln -s /usr/lib/x86_64-linux-gnu/liblept.so.5 /app/x64/libleptonica-1.82.0.so
 RUN ln -s /usr/lib/x86_64-linux-gnu/libtesseract.so.5 /app/x64/libtesseract50.so
 #RUN ln -s /usr/lib/x86_64-linux-gnu/libtesseract.so.4 /app/x64/libtesseract50.so
 

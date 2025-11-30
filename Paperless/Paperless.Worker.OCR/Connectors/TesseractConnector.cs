@@ -1,4 +1,3 @@
-using IronOcr;
 using NLog;
 using Tesseract;
 
@@ -30,15 +29,6 @@ namespace Paperless.Worker.OCR.Connectors
                  using var engine = new TesseractEngine(_tessdataPath, _language, EngineMode.Default);
                  using var page = engine.Process(img);
                  var text = page.GetText();
-                /* NuGet: IronOCR */
-                //var Ocr = new IronTesseract();
-                //var text = string.Empty;
-                //using (var Input = new OcrInput())
-                //{
-                //    Input.LoadImage(fileBytes);
-                //    var result = Ocr.Read(Input);
-                //    text = result.Text;
-                //}
                 
                 return await Task.FromResult(text ?? string.Empty);
 
