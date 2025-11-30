@@ -1,4 +1,3 @@
-version: '3.8'
 name: paperless-swen3
 
 services:
@@ -7,12 +6,23 @@ services:
     image: "${DOCKER_REGISTRY}paperlessrest"
     container_name: paperless-rest
     build:
-      context: .
-      dockerfile: Paperless.REST/Dockerfile
+      context: ./Paperless.REST
+      dockerfile: Dockerfile
     ports:
       - "8081:8081"
     volumes:
       - ./.data/Files:/.data/Files:rw
+    environment:
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+    healthcheck:
+        test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
     depends_on:
       - paperless.db
       - paperless.rabbitmq
@@ -23,8 +33,8 @@ services:
     image: "${DOCKER_REGISTRY}paperlessui"
     container_name: paperless-ui
     build:
-      context: . 
-      dockerfile: Paperless.UI/Dockerfile
+      context: ./Paperless.UI
+      dockerfile: Dockerfile
     ports:
       - "80:8080"
       - "443:8081"
@@ -36,13 +46,22 @@ services:
     image: "${DOCKER_REGISTRY}paperlessocrworker"
     container_name: paperless-ocr-worker
     build:
-      context: .
-      dockerfile: Paperless.Worker.OCR/Dockerfile
+      context: ./Paperless.Worker.OCR
+      dockerfile: Dockerfile
     volumes:
       - ./.data/paperless-tesseract/tessdata:/tessdata:rw
+    environment:
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - RABBITMQ_QUEUE=${RABBITMQ_QUEUE}
     depends_on:
       - paperless.db
       - paperless.rabbitmq
+
+
+  # --------------------------- Supporting Services ---------------------------
 
   # Database service using basic PostgreSQL docker image
   paperless.db:
@@ -86,10 +105,16 @@ services:
       - 9093:15672
       - 5672:5672
     environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
     volumes:
       - ./.data/paperless-rabbitmq:/var/lib/rabbitmq:rw
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   # MinIO object storage used for file storage
   paperless.minio:

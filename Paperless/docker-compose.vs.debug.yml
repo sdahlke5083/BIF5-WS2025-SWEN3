@@ -1,0 +1,12 @@
+services:
+  paperless.rest:
+    volumes:
+      - ./Paperless.REST:/src/Paperless.REST:ro
+
+  paperless.ui:
+    volumes:
+     - ./Paperless.UI:/src/Paperless.UI:ro
+
+  paperless.worker.ocr:
+    volumes:
+      - ./Paperless.Worker.OCR:/src/Paperless.Worker.OCR:ro
