@@ -17,7 +17,10 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
-      - RABBITMQ_QUEUE=${RABBITMQ_ORC_QUEUE}
+      # Publish to exchange; REST doesn't need a consumer queue but we keep QUEUE for backward compatibility
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
+      - RABBITMQ_QUEUE=${RABBITMQ_REST_QUEUE}
     healthcheck:
         test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
         interval: 10s
@@ -56,7 +59,10 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
-      - RABBITMQ_QUEUE=${RABBITMQ_ORC_QUEUE}
+      # Consumer queue name for OCR worker
+      - RABBITMQ_QUEUE=${RABBITMQ_OCR_QUEUE}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
     depends_on:
       - paperless.db
       - paperless.rabbitmq
@@ -78,7 +84,10 @@ services:
       - RABBITMQ_PORT=${RABBITMQ_PORT}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
-      - RABBITMQ_QUEUE=${RABBITMQ_TASK_QUEUE}
+      # Consumer queue name for GenAI worker
+      - RABBITMQ_QUEUE=${RABBITMQ_GENAI_QUEUE}
+      - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
+      - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
     depends_on:
       - paperless.db
       - paperless.rabbitmq

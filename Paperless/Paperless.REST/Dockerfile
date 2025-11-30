@@ -11,7 +11,9 @@ EXPOSE 8081
 ENV RABBITMQ_HOST=paperless-rabbitmq \
     RABBITMQ_PORT=5672 \
     RABBITMQ_USER=paperless \
-    RABBITMQ_PASS=paperless
+    RABBITMQ_PASS=paperless \
+    RABBITMQ_EXCHANGE=tasks \
+    RABBITMQ_EXCHANGE_TYPE=direct
 
 
 # Diese Stufe wird zum Erstellen des Dienstprojekts verwendet.

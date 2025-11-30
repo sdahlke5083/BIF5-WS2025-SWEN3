@@ -6,7 +6,10 @@
         public int Port { get; set; } = 5672;
         public string UserName { get; set; } = "paperless";
         public string Password { get; set; } = "paperless";
-        public string QueueName { get; set; } = "ocr-queue";
+        // Exchange name for task routing
+        public string ExchangeName { get; set; } = "tasks";
         public bool Durable { get; set; } = true;
+        // Exchange type (direct/topic/headers) - default to direct for routingKey usage
+        public string ExchangeType { get; set; } = "direct";
     }
 }

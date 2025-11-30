@@ -1,6 +1,7 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text;
+using System.Text.Json;
 
 namespace Paperless.Worker.OCR.RabbitMQ
 {
@@ -13,6 +14,7 @@ namespace Paperless.Worker.OCR.RabbitMQ
         private int _port;
         private String _username;
         private String _password;
+        private String _exchangeName;
 
         public Func<string, Task>? OnMessageReceived { get; set; }
 
@@ -24,6 +26,7 @@ namespace Paperless.Worker.OCR.RabbitMQ
             _username = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "paperless";
             _password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless"; // TODO HIDE CREDENTIALS
             _queueName = Environment.GetEnvironmentVariable("RABBITMQ_QUEUE") ?? "ocr-queue";
+            _exchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
         }
 
         public async Task SetupAsync(CancellationToken cancellationToken)
@@ -51,10 +54,15 @@ namespace Paperless.Worker.OCR.RabbitMQ
                     _conn = await factory.CreateConnectionAsync(cancellationToken);
                     _ch = await _conn.CreateChannelAsync();
 
-                    // declare queue (synchronous-like via async API)
+                    // ensure exchange exists and declare queue for OCR
+                    await _ch.ExchangeDeclareAsync(exchange: _exchangeName, type: "direct", durable: true, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
+
                     await _ch.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
 
-                    Console.WriteLine($"OcrConsumer: connected to RabbitMQ and declared queue '{_queueName}'");
+                    // bind queue to exchange for routingKey 'ocr'
+                    await _ch.QueueBindAsync(queue: _queueName, exchange: _exchangeName, routingKey: "ocr", arguments: null, cancellationToken: cancellationToken);
+
+                    Console.WriteLine($"OcrConsumer: connected to RabbitMQ, declared queue '{_queueName}' and bound to exchange '{_exchangeName}' with routingKey 'ocr'");
                     return;
                 }
                 catch (OperationCanceledException)

@@ -1,6 +1,7 @@
 using NLog;
 using Paperless.Worker.GenAI.Connectors;
 using Paperless.Worker.GenAI.RabbitMQ;
+using System.Text.Json;
 
 namespace Paperless.Worker.GenAI
 {
@@ -16,7 +17,7 @@ namespace Paperless.Worker.GenAI
             // später für echte Gemini-Aufrufe
             _genAiConnector = new GenAiConnector();
 
-            // RabbitMQ-Consumer für die "genai-queue"
+            // RabbitMQ-Consumer für die "task-queue"
             _consumer = new GenAiConsumer
             {
                 // Callback: hierher kommt jede Nachricht aus der Queue
@@ -33,10 +34,23 @@ namespace Paperless.Worker.GenAI
             await base.StartAsync(cancellationToken);
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.Info("GenAI Worker is running and waiting for messages...");
-            return Task.CompletedTask;
+            // Start consuming messages until stopped
+            if (_consumer is not null)
+            {
+                await _consumer.ExecuteAsync(stoppingToken);
+            }
+            else
+            {
+                _logger.Warn("GenAiConsumer is null; nothing to execute.");
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, stoppingToken);
+                }
+                catch (OperationCanceledException) { }
+            }
         }
 
         public override async Task StopAsync(CancellationToken cancellationToken)
@@ -61,15 +75,26 @@ namespace Paperless.Worker.GenAI
 
             try
             {
-                var dummy = Environment.GetEnvironmentVariable("This is a dummy OCR text for E2E test.")
-                          ?? "This is a dummy OCR text. Please summarize in 3 bullets.";
+                // Expect the message to contain ocr_text and document_id
+                using var doc = JsonDocument.Parse(jsonMessage);
+                var root = doc.RootElement;
 
-                var summary = await _genAiConnector.SummarizeAsync(dummy, CancellationToken.None);
-                _logger.Info($"[GenAI] SmokeTest summary:\n{summary}");
+                string ocrText = string.Empty;
+                if (root.TryGetProperty("ocr_text", out var t))
+                    ocrText = t.GetString() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(ocrText))
+                {
+                    _logger.Warn("[GenAI] No OCR text found in message, skipping.");
+                    return;
+                }
+
+                var summary = await _genAiConnector.SummarizeAsync(ocrText, CancellationToken.None);
+                _logger.Info($"[GenAI] Summary for document:\n{summary}");
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "[GenAI] SmokeTest failed.");
+                _logger.Error(ex, "[GenAI] Processing failed.");
             }
         }
     }

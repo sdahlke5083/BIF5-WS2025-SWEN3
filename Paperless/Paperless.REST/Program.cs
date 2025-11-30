@@ -26,7 +26,9 @@ services.Configure<RabbitMqOptions>(opts =>
     opts.Port = int.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out var p) ? p : 5672;
     opts.UserName = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "paperless";
     opts.Password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless";
-    opts.QueueName = Environment.GetEnvironmentVariable("RABBITMQ_QUEUE") ?? "ocr-queue";
+    // Use the configured exchange name for routing
+    opts.ExchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
+    opts.ExchangeType = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE_TYPE") ?? "direct";
     opts.Durable = true;
 });
 

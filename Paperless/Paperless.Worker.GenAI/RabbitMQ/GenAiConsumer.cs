@@ -1,6 +1,7 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text;
+using System.Text.Json;
 
 namespace Paperless.Worker.GenAI.RabbitMQ
 {
@@ -13,6 +14,7 @@ namespace Paperless.Worker.GenAI.RabbitMQ
         private int _port;
         private string _username;
         private string _password;
+        private string _exchangeName;
 
         /// <summary>
         /// Callback, das vom Worker gesetzt wird.
@@ -27,7 +29,8 @@ namespace Paperless.Worker.GenAI.RabbitMQ
             _port = int.TryParse(Environment.GetEnvironmentVariable("RABBITMQ_PORT"), out var p) ? p : 5672;
             _username = Environment.GetEnvironmentVariable("RABBITMQ_USER") ?? "paperless";
             _password = Environment.GetEnvironmentVariable("RABBITMQ_PASS") ?? "paperless"; // TODO: Credentials aus Config holen
-            _queueName = Environment.GetEnvironmentVariable("RABBITMQ_QUEUE") ?? "genai-queue";   // eigene Queue für GenAI-Jobs
+            _queueName = Environment.GetEnvironmentVariable("RABBITMQ_QUEUE") ?? "genai-queue";
+            _exchangeName = Environment.GetEnvironmentVariable("RABBITMQ_EXCHANGE") ?? "tasks";
         }
 
         public async Task SetupAsync(CancellationToken cancellationToken)
@@ -56,10 +59,15 @@ namespace Paperless.Worker.GenAI.RabbitMQ
                     // use overload: CreateChannelAsync(CreateChannelOptions? options, CancellationToken ct)
                     _ch = await _conn.CreateChannelAsync(null, cancellationToken);
 
-                    // declare queue
+                    // declare exchange and queue for GenAI
+                    await _ch.ExchangeDeclareAsync(exchange: _exchangeName, type: "direct", durable: true, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
+
                     await _ch.QueueDeclareAsync(queue: _queueName, durable: true, exclusive: false, autoDelete: false, arguments: null, cancellationToken: cancellationToken);
 
-                    Console.WriteLine($"GenAiConsumer: connected to RabbitMQ and declared queue '{_queueName}'");
+                    // bind queue to exchange for routingKey 'genai'
+                    await _ch.QueueBindAsync(queue: _queueName, exchange: _exchangeName, routingKey: "genai", arguments: null, cancellationToken: cancellationToken);
+
+                    Console.WriteLine($"GenAiConsumer: connected to RabbitMQ, declared queue '{_queueName}' and bound to exchange '{_exchangeName}' with routingKey 'genai'");
                     return;
                 }
                 catch (OperationCanceledException)

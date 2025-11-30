@@ -3,6 +3,15 @@ FROM mcr.microsoft.com/dotnet/runtime:9.0 AS base
 USER $APP_UID
 WORKDIR /app
 
+# Default RabbitMQ environment variables (can be overridden by docker-compose or runtime)
+ENV RABBITMQ_HOST=paperless-rabbitmq \
+    RABBITMQ_PORT=5672 \
+    RABBITMQ_USER=paperless \
+    RABBITMQ_PASS=paperless \
+    RABBITMQ_EXCHANGE=tasks \
+    RABBITMQ_EXCHANGE_TYPE=direct \
+    RABBITMQ_QUEUE=genai-queue
+
 # Build-Stage: SDK-Image zum Kompilieren
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release

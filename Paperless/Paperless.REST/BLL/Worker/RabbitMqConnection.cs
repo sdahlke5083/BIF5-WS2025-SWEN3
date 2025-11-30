@@ -128,7 +128,13 @@ namespace Paperless.REST.BLL.Worker
                 if (_options == null)
                     throw new InvalidOperationException("RabbitMQ options have not been set.");
 
-                await _channel.QueueDeclareAsync(queue: _options.QueueName, durable: _options.Durable, autoDelete: false, exclusive: false, arguments: null, cancellationToken: ct);
+                // Declare configured exchange
+                if (!string.IsNullOrWhiteSpace(_options.ExchangeName))
+                {
+                    await _channel.ExchangeDeclareAsync(exchange: _options.ExchangeName, type: _options.ExchangeType ?? "direct", durable: _options.Durable, autoDelete: false, arguments: null, cancellationToken: ct);
+                }
+
+                // No queue declarations here; per-worker consumers declare and bind their own queues
             }
             return _channel;
         }
