@@ -21,3 +21,18 @@ services:
       interval: 5s
       timeout: 2s
       retries: 2
+
+  # enable elastic search container to have a ui part
+  paperless.elasticsearch:
+    environment:
+      - http.cors.enabled='true'
+      - http.cors.allow-origin="*"
+      - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization
+  
+  paperless.elasticsearch.ui:
+    image: cars10/elasticvue
+    container_name: paperless-elasticsearch-ui
+    ports:
+      - 9092:8080
+    environment:
+      - ELASTICVUE_CLUSTERS='[{"name":"SWEN-cluster","uri":"http://localhost:9200"}]'

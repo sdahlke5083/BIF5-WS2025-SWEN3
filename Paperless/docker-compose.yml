@@ -21,6 +21,8 @@ services:
       - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
       - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
       - RABBITMQ_QUEUE=${RABBITMQ_REST_QUEUE}
+      - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST}
+      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
     healthcheck:
         test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
         interval: 10s
@@ -31,6 +33,7 @@ services:
       - paperless.db
       - paperless.rabbitmq
       - paperless.minio
+      - paperless.elasticsearch
 
   # UI service using Blazor
   paperless.ui:
@@ -63,9 +66,12 @@ services:
       - RABBITMQ_QUEUE=${RABBITMQ_OCR_QUEUE}
       - RABBITMQ_EXCHANGE=${RABBITMQ_EXCHANGE}
       - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
+      - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST}
+      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
     depends_on:
       - paperless.db
       - paperless.rabbitmq
+      - paperless.elasticsearch
 
   # GenAI Worker service for generating document summaries
   paperless.worker.genai:
@@ -90,9 +96,12 @@ services:
       - RABBITMQ_EXCHANGE_TYPE=${RABBITMQ_EXCHANGE_TYPE}
       # REST API config
       - REST_API_URL=${REST_API_URL}
+      - ELASTICSEARCH_HOST=${ELASTICSEARCH_HOST}
+      - ELASTICSEARCH_PORT=${ELASTICSEARCH_PORT}
     depends_on:
       - paperless.db
       - paperless.rabbitmq
+      - paperless.elasticsearch
 
   # --------------------------- Supporting Services ---------------------------
   
@@ -136,7 +145,6 @@ services:
     restart: unless-stopped
     ports:
       - 9093:15672 # management UI
-      #- 5672:5672 # queue port
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
@@ -144,6 +152,25 @@ services:
       - ./.data/paperless-rabbitmq:/var/lib/rabbitmq:rw
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Elasticsearch for full-text search
+  paperless.elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.16.0
+    container_name: paperless-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - 9200:9200
+    volumes:
+      - ./.data/paperless-elasticsearch:/usr/share/elasticsearch/data:rw
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

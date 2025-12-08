@@ -210,6 +210,19 @@ namespace Paperless.REST.API.Controllers
             await _db.DocumentSummaries.AddAsync(summary);
             await _db.SaveChangesAsync();
 
+            try
+            {
+                var es = HttpContext.RequestServices.GetService(typeof(BLL.Search.MyElasticSearchClient)) as BLL.Search.MyElasticSearchClient;
+                if (es != null)
+                {
+                    await es.UpdateSummaryAsync(id, summary.Content);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Failed to update summary in Elasticsearch");
+            }
+
             return Created($"/v1/documents/{id}/summaries/{summary.Id}", new { id = summary.Id });
         }
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Paperless.REST.BLL.Search;
 
 namespace Paperless.REST.API.Controllers
 {
@@ -9,6 +10,12 @@ namespace Paperless.REST.API.Controllers
     public class SearchController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly MyElasticSearchClient _es;
+
+        public SearchController(MyElasticSearchClient es)
+        {
+            _es = es;
+        }
 
         /// <summary>
         /// Search documents (free-text + filters)
@@ -33,10 +40,31 @@ namespace Paperless.REST.API.Controllers
         [Route("/v1/search")]
         //[Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
-        public virtual IActionResult SearchDocuments([FromQuery (Name = "q")]string q, [FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize, [FromQuery (Name = "sort")]string sort, [FromQuery (Name = "fileType")]string fileType, [FromQuery (Name = "sizeMin")]long? sizeMin, [FromQuery (Name = "sizeMax")]long? sizeMax, [FromQuery (Name = "uploadDateFrom")]DateTime? uploadDateFrom, [FromQuery (Name = "uploadDateTo")]DateTime? uploadDateTo, [FromQuery (Name = "hasSummary")]bool? hasSummary, [FromQuery (Name = "hasError")]bool? hasError, [FromQuery (Name = "uploaderId")]Guid? uploaderId, [FromQuery (Name = "workspaceId")]Guid? workspaceId, [FromQuery (Name = "approvalStatus")]string approvalStatus, [FromQuery (Name = "shared")]bool? shared)
+        public virtual async Task<IActionResult> SearchDocuments([FromQuery (Name = "q")]string q, [FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize, [FromQuery (Name = "sort")]string? sort, [FromQuery (Name = "fileType")]string? fileType, [FromQuery (Name = "sizeMin")]long? sizeMin, [FromQuery (Name = "sizeMax")]long? sizeMax, [FromQuery (Name = "uploadDateFrom")]DateTime? uploadDateFrom, [FromQuery (Name = "uploadDateTo")]DateTime? uploadDateTo, [FromQuery (Name = "hasSummary")]bool? hasSummary, [FromQuery (Name = "hasError")]bool? hasError, [FromQuery (Name = "uploaderId")]Guid? uploaderId, [FromQuery (Name = "workspaceId")]Guid? workspaceId, [FromQuery (Name = "approvalStatus")]string? approvalStatus, [FromQuery (Name = "shared")]bool? shared)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            if (string.IsNullOrWhiteSpace(q)) return BadRequest();
+            var from = ((page ?? 1) - 1) * (pageSize ?? 20);
+            var size = pageSize ?? 20;
+            try
+            {
+                var ids = await _es.SearchAsync(q, from, size);
+                return Ok(new { ids = ids });
+            }
+            catch (InvalidOperationException ioe)
+            {
+                _logger.Error(ioe, "Elasticsearch request failed");
+                return Problem(detail: ioe.Message, statusCode: 502, title: "Bad Gateway");
+            }
+            catch (HttpRequestException hre)
+            {
+                _logger.Error(hre, "Elasticsearch HTTP error");
+                return Problem(detail: hre.Message, statusCode: 502, title: "Bad Gateway");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Elasticsearch search failed");
+                return Problem(detail: ex.Message, statusCode: 500, title: "An error occurred while processing your request.");
+            }
         }
     }
 }

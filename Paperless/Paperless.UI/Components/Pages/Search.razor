@@ -1,0 +1,35 @@
+@page "/search"
+@using System
+@using System.Collections.Generic
+@using System.Threading.Tasks
+
+<h3>Search Documents</h3>
+
+<div class="mb-3">
+    <input class="form-control" @bind="Query" placeholder="Enter search text" />
+</div>
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="DoSearch">Search</button>
+</div>
+
+@if (IsLoading)
+{
+    <p>Searching…</p>
+}
+else if (Results is not null)
+{
+    <h5>Results</h5>
+    @if (Results.Count == 0)
+    {
+        <p>No results.</p>
+    }
+    else
+    {
+        <ul class="list-group">
+            @foreach (var id in Results)
+            {
+                <li class="list-group-item">@id</li>
+            }
+        </ul>
+    }
+}

@@ -1,15 +1,17 @@
+using Elastic.Clients.Elasticsearch;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Paperless.REST.API.Middleware;
 using Paperless.REST.BLL.Models;
+using Paperless.REST.BLL.Search;
+using Paperless.REST.BLL.Storage;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Worker;
 using Paperless.REST.DAL;
 using Paperless.REST.DAL.DbContexts;
 using Paperless.REST.DAL.Repositories;
 using System.Reflection;
-using Paperless.REST.BLL.Storage;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +49,14 @@ services.AddControllers().AddJsonOptions(x =>
 {
     x.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
 });
+
+// Register HttpClient factory for Elasticsearch/worker calls
+services.AddHttpClient();
+
+// Register MyElasticSearchClient as singleton using the official Elasticsearch .NET client
+services.AddSingleton<MyElasticSearchClient>();
+
+
 services.AddDbContext<PostgressDbContext>(o =>
 {
     o.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection"));

@@ -5,6 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Forms;
 using System.Text.Json;
+using System.Net.Http.Json;
+using System.Collections.Generic;
 
 namespace Paperless.UI.Services
 {
@@ -64,5 +66,15 @@ namespace Paperless.UI.Services
                 throw new Exception($"API connection error: {ex.Message} (StatusCode: {ex.StatusCode})\nEx: {details} ", ex);
             }
         }
+
+        public async Task<List<Guid>> SearchAsync(string q, int page = 1, int pageSize = 20)
+        {
+            var from = (page - 1) * pageSize;
+            var url = $"/v1/search?q={Uri.EscapeDataString(q)}&page={page}&pageSize={pageSize}";
+            var resp = await _http.GetFromJsonAsync<SearchResponseDto>(url);
+            return resp?.ids ?? new List<Guid>();
+        }
+
+        private class SearchResponseDto { public List<Guid> ids { get; set; } = new(); }
     }
 }
