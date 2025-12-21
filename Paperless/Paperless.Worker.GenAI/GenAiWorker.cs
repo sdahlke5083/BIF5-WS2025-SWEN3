@@ -144,6 +144,26 @@ namespace Paperless.Worker.GenAI
                         if (resp.IsSuccessStatusCode)
                         {
                             _logger.Info($"[GenAI] Successfully stored summary for document {documentId} via REST API.");
+                            // also update ES directly (worker-side) to set summary
+                            try
+                            {
+                                var host = Environment.GetEnvironmentVariable("ELASTICSEARCH_HOST") ?? "elasticsearch";
+                                var port = Environment.GetEnvironmentVariable("ELASTICSEARCH_PORT") ?? "9200";
+                                var esUrl = $"http://{host}:{port}";
+                                using var client = new HttpClient() { BaseAddress = new Uri(esUrl), Timeout = TimeSpan.FromSeconds(10) };
+                                if (Guid.TryParse(documentId, out var docGuid))
+                                {
+                                    var indexName = "document_texts";
+                                    var updateBody = new { doc = new { summary = summary, timestamp = DateTime.UtcNow }, doc_as_upsert = true };
+                                    var updateResp = await client.PostAsJsonAsync($"/{indexName}/_update/{docGuid}", updateBody);
+                                    if (!updateResp.IsSuccessStatusCode)
+                                        _logger.Warn("Failed to update summary in Elasticsearch directly from GenAI worker: {0}", updateResp.StatusCode);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Warn(ex, "Error updating summary in Elasticsearch from GenAI worker");
+                            }
                             break;
                         }
 

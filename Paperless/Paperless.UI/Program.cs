@@ -14,7 +14,7 @@ namespace Paperless.UI
 
             // Configure HttpClient for REST API
             var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://paperless.rest:8080";
-            builder.Services.AddHttpClient<Paperless.UI.Services.IUploadsApiClient, Paperless.UI.Services.UploadsApiClient>(client =>
+            builder.Services.AddHttpClient<Services.IUploadsApiClient, Services.UploadsApiClient>(client =>
             {
                 if (!apiBase.EndsWith("/")) apiBase += "/";
                 client.BaseAddress = new Uri(apiBase);

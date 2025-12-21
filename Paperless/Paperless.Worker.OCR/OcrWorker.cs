@@ -1,10 +1,10 @@
 using Microsoft.Extensions.Options;
-using Minio.DataModel.Replication;
 using NLog;
 using Paperless.Worker.OCR.Connectors;
 using Paperless.Worker.OCR.RabbitMQ;
-using System.Text.Json;
 using RabbitMQ.Client;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Paperless.Worker.OCR
 {
@@ -15,6 +15,7 @@ namespace Paperless.Worker.OCR
         private readonly MinioConnector _minio;
         private readonly TesseractConnector _tesseract;
         private IChannel? _publishChannel; // for forwarding to genai
+        private HttpClient? _esHttp; // HTTP client for Elasticsearch
 
         public OcrWorker(IOptions<MinioStorageOptions> options)
         {
@@ -55,6 +56,68 @@ namespace Paperless.Worker.OCR
             catch (Exception ex)
             {
                 _logger.Error(ex, "Failed to create publisher channel for OCR worker");
+            }
+
+            // create http client for elasticsearch
+            try
+            {
+                // support multiple env names and fallbacks
+                var baseUrl = Environment.GetEnvironmentVariable("ELASTIC_URL")
+                    ?? Environment.GetEnvironmentVariable("ELASTICSEARCH_URL")
+                    ?? (Environment.GetEnvironmentVariable("ELASTICSEARCH_HOST") is string host && !string.IsNullOrWhiteSpace(host)
+                        ? $"http://{host}:{Environment.GetEnvironmentVariable("ELASTICSEARCH_PORT") ?? "9200"}"
+                        : null)
+                    ?? "http://ELASTIC_URL-MISSING:9200";
+
+                // Guard against placeholder values like {ELASTICSEARCH_HOST}
+                if (baseUrl.Contains("{") || baseUrl.Contains("}"))
+                {
+                    _logger.Warn("ELASTIC_URL contains unresolved placeholders ('{0}'), falling back to default.", baseUrl);
+                    baseUrl = "http://elasticsearch:9200";
+                }
+
+                if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
+                {
+                    _esHttp = new HttpClient() { BaseAddress = baseUri, Timeout = TimeSpan.FromSeconds(10) };
+                }
+                else
+                {
+                    _logger.Warn("ELASTIC_URL '{0}' is not a valid absolute URI; Elasticsearch client will be disabled.", baseUrl);
+                    _esHttp = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Failed to create Elasticsearch HTTP client");
+                _esHttp = null;
+            }
+            // create http client for elasticsearch using ELASTICSEARCH_HOST/PORT
+            try
+            {
+                var host = Environment.GetEnvironmentVariable("ELASTICSEARCH_HOST") ?? "elasticsearch";
+                var port = Environment.GetEnvironmentVariable("ELASTICSEARCH_PORT") ?? "9200";
+                var baseUrl = $"http://{host}:{port}";
+
+                if (baseUrl.Contains("{") || baseUrl.Contains("}"))
+                {
+                    _logger.Warn("ELASTICSEARCH_HOST/PORT contain unresolved placeholders ('{0}'), falling back to default.", baseUrl);
+                    baseUrl = "http://elasticsearch:9200";
+                }
+
+                if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
+                {
+                    _esHttp = new HttpClient() { BaseAddress = baseUri, Timeout = TimeSpan.FromSeconds(10) };
+                }
+                else
+                {
+                    _logger.Warn("ELASTICSEARCH base URL '{0}' is not a valid absolute URI; Elasticsearch client will be disabled.", baseUrl);
+                    _esHttp = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn(ex, "Failed to create Elasticsearch HTTP client");
+                _esHttp = null;
             }
 
             await base.StartAsync(cancellationToken);
@@ -105,6 +168,32 @@ namespace Paperless.Worker.OCR
                 if (!Guid.TryParse(documentIdSegment, out var _))
                 {
                     _logger.Warn("Extracted document id segment '{0}' is not a valid GUID. Sending segment as-is.", documentIdSegment);
+                }
+
+                // attempt to update (upsert) in elasticsearch using _update with doc_as_upsert=true
+                if (_esHttp is not null)
+                {
+                    try
+                    {
+                        if (Guid.TryParse(documentIdSegment, out var docGuid))
+                        {
+                            var indexName = "document_texts";
+                            var body = new
+                            {
+                                doc = new { ocr = ocrResult, timestamp = DateTime.UtcNow },
+                                doc_as_upsert = true
+                            };
+
+                            var updateUri = $"/{indexName}/_update/{docGuid}";
+                            var resp = await _esHttp.PostAsJsonAsync(updateUri, body);
+                            if (!resp.IsSuccessStatusCode)
+                                _logger.Warn("Failed to update (upsert) OCR text to Elasticsearch: {0}", resp.StatusCode);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn(ex, "Error while updating OCR text in Elasticsearch");
+                    }
                 }
 
                 // Publish result to exchange for GenAI: use routingKey 'genai' and include ocr_text and document_id (GUID only)

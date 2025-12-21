@@ -7,6 +7,7 @@ namespace Paperless.UI.Services
     public interface IUploadsApiClient
     {
         Task<UploadResult> UploadAsync(IBrowserFile file, CancellationToken ct = default);
+        Task<List<Guid>> SearchAsync(string q, int page = 1, int pageSize = 20);
     }
 
     public class UploadResult
