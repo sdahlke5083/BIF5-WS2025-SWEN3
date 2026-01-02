@@ -1,3 +1,4 @@
+using System.Text;
 using NLog;
 using Tesseract;
 
@@ -15,8 +16,17 @@ namespace Paperless.Worker.OCR.Connectors
             _language = language;
         }
 
+        private static bool IsPdf(byte[] bytes)
+        {
+            return bytes.Length >= 5 &&
+                   bytes[0] == (byte)'%' &&
+                   bytes[1] == (byte)'P' &&
+                   bytes[2] == (byte)'D' &&
+                   bytes[3] == (byte)'F' &&
+                   bytes[4] == (byte)'-';
+        }
         // Erwartet Datei-Bytes und gibt den erkannten Text zurück.
-        public async Task<string> RunOcrAsync(byte[] fileBytes)
+        public async Task<string> RunOcrAsync(byte[] fileBytes, CancellationToken ct = default)
         {
             if (fileBytes is null || fileBytes.Length == 0)
                 throw new ArgumentException("fileBytes darf nicht leer sein.", nameof(fileBytes));
@@ -25,13 +35,33 @@ namespace Paperless.Worker.OCR.Connectors
             {
                 /* NuGet: Tesseract */
                 // Tesseract.NET verwendet native Leptonica/Tesseract libs; hier wird das Pix-Objekt erstellt.
-                 using var img = Pix.LoadFromMemory(fileBytes);
-                 using var engine = new TesseractEngine(_tessdataPath, _language, EngineMode.Default);
-                 using var page = engine.Process(img);
-                 var text = page.GetText();
-                
-                return await Task.FromResult(text ?? string.Empty);
+                // PDF -> Seiten als PNG rendern, sonst direkt als Bild behandeln
+                IReadOnlyList<byte[]> images;
+                if (IsPdf(fileBytes))
+                {
+                    images = await PdfToPngConverter.ConvertAsync(fileBytes, ct);
+                }
+                else
+                {
+                    images = new[] { fileBytes };
+                }
 
+                // Engine EINMAL pro Request erstellen
+                using var engine = new TesseractEngine(_tessdataPath, _language, EngineMode.Default);
+
+                var sb = new StringBuilder();
+
+                foreach (var imgBytes in images)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    using var pix = Pix.LoadFromMemory(imgBytes);
+                    using var page = engine.Process(pix);
+                    sb.AppendLine(page.GetText() ?? string.Empty);
+                    sb.AppendLine("\n----- PAGE BREAK -----\n");
+                }
+
+                return sb.ToString();
             }
             catch (DllNotFoundException dnfe)
             {

@@ -13,7 +13,7 @@ namespace Paperless.UI
                 .AddInteractiveServerComponents();
 
             // Configure HttpClient for REST API
-            var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://paperless.rest:8080";
+            var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://paperless.rest:8081";
             if (!apiBase.EndsWith("/")) apiBase += "/";
 
             // Protected browser storage for token persistence (Server interactive components)

@@ -39,7 +39,7 @@ namespace Paperless.REST.DAL.Migrations
 
             migrationBuilder.InsertData(
                 table: "users",
-                columns: new[] { "id", "username", "displayName", "password", "createdAt", "MustChangePassword" },
+                columns: new[] { "id", "username", "displayName", "password", "createdAt", "mustChangePassword" },
                 values: new object[] { userId, username, displayName, stored, createdAt, true }
             );
 
