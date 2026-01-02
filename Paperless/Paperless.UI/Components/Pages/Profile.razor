@@ -1,0 +1,64 @@
+@page "/profile"
+@inject Paperless.UI.Services.IAuthService Auth
+@inject Paperless.UI.Services.IUsersApiClient UsersApi
+@inject Paperless.UI.Services.INotificationService Notify
+@using Paperless.UI.Services
+
+<h3>Profile</h3>
+<div>
+    @if (profile is null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <p>Username: @profile.username</p>
+        <p>Display name: <input @bind="displayName" /></p>
+        @if (profile.mustChangePassword)
+        {
+            <p class="text-warning">You must change your password</p>
+        }
+        <p>
+            <label>New password</label>
+            <input type="password" @bind="newPassword" />
+        </p>
+        <p>
+            <label>Current password</label>
+            <input type="password" @bind="currentPassword" />
+        </p>
+        <button @onclick="Save">Save</button>
+    }
+</div>
+
+<button @onclick="Logout">Logout</button>
+
+@code {
+    private UserProfileDto? profile;
+    private string? displayName;
+    private string? newPassword;
+    private string? currentPassword;
+
+    protected override async Task OnInitializedAsync()
+    {
+        profile = await UsersApi.GetProfileAsync();
+        displayName = profile?.displayName;
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            await UsersApi.UpdateProfileAsync(new UserProfileUpdateDto(displayName, newPassword, currentPassword));
+            Notify.Notify("Profile updated", "success");
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify("Failed to update profile: " + ex.Message, "error");
+        }
+    }
+
+    private void Logout()
+    {
+        Auth.Logout();
+    }
+}

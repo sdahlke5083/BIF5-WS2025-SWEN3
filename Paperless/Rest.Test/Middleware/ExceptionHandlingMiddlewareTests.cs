@@ -7,7 +7,7 @@ using Paperless.REST.API.Models.BaseResponse;
 using Paperless.REST.BLL.Exceptions;
 using Paperless.REST.DAL.Exceptions;
 
-namespace Rest.Test.Middleware
+namespace Paperless.REST.Test.Middleware
 {
     [TestFixture]
     public class ExceptionHandlingMiddlewareTests

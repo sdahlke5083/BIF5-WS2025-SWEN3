@@ -75,37 +75,98 @@ namespace Paperless.REST.DAL.Repositories
 
         public Task<Document?> GetByIdAsync(Guid id, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return _context.Documents
+                .Include(d => d.ProcessingStatus)
+                .Include(d => d.MetadataVersions)
+                .Include(d => d.FileVersions)
+                .Include(d => d.Summaries)
+                .Include(d => d.DocumentTags).ThenInclude(dt => dt.Tag)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == id, ct);
         }
 
         public Task<List<Document>> GetAllActiveAsync(CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return _context.Documents
+                .Where(d => d.DeletedAt == null)
+                .Include(d => d.ProcessingStatus)
+                .Include(d => d.MetadataVersions)
+                .AsNoTracking()
+                .ToListAsync(ct);
         }
 
         public Task<List<Document>> GetAllDeleted(CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return _context.Documents
+                .Where(d => d.DeletedAt != null)
+                .Include(d => d.ProcessingStatus)
+                .Include(d => d.MetadataVersions)
+                .AsNoTracking()
+                .ToListAsync(ct);
         }
 
         public Task UpdateAsync(Document doc, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            if (doc is null) throw new ArgumentNullException(nameof(doc));
+            _context.Documents.Update(doc);
+            return _context.SaveChangesAsync(ct);
         }
 
         public Task DeleteAsync(Guid id, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return SoftDeleteAsync(id, ct);
         }
 
         public Task RestoreAsync(Guid id, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return RestoreInternalAsync(id, ct);
         }
 
         public Task PermanentlyDeleteAsync(Guid id, CancellationToken ct = default)
         {
-            throw new NotImplementedException();
+            return PermanentlyDeleteInternalAsync(id, ct);
+        }
+
+        private async Task SoftDeleteAsync(Guid id, CancellationToken ct)
+        {
+            var doc = await _context.Documents.FirstOrDefaultAsync(d => d.Id == id, ct).ConfigureAwait(false);
+            if (doc is null)
+                throw new DataAccessException($"Document with id {id} not found.");
+
+            if (doc.DeletedAt != null)
+                return; // already deleted
+
+            doc.DeletedAt = DateTimeOffset.UtcNow;
+            await _context.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        private async Task RestoreInternalAsync(Guid id, CancellationToken ct)
+        {
+            var doc = await _context.Documents.FirstOrDefaultAsync(d => d.Id == id, ct).ConfigureAwait(false);
+            if (doc is null)
+                throw new DataAccessException($"Document with id {id} not found.");
+
+            if (doc.DeletedAt == null)
+                return; // not deleted
+
+            doc.DeletedAt = null;
+            doc.DeletedByUserId = null;
+            await _context.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        private async Task PermanentlyDeleteInternalAsync(Guid id, CancellationToken ct)
+        {
+            var doc = await _context.Documents
+                .Include(d => d.MetadataVersions)
+                .Include(d => d.FileVersions)
+                .Include(d => d.DocumentTags)
+                .FirstOrDefaultAsync(d => d.Id == id, ct).ConfigureAwait(false);
+
+            if (doc is null)
+                throw new DataAccessException($"Document with id {id} not found.");
+
+            _context.Documents.Remove(doc);
+            await _context.SaveChangesAsync(ct).ConfigureAwait(false);
         }
     }
 }

@@ -1,0 +1,21 @@
+@page "/login"
+@inherits LoginBase
+
+<div class="login-card">
+    <h3>Sign in</h3>
+    <div>
+        <label>Username</label>
+        <input @bind="Username" />
+    </div>
+    <div>
+        <label>Password</label>
+        <input type="password" @bind="Password" />
+    </div>
+    <div>
+        <button @onclick="DoLogin">Login</button>
+    </div>
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="error">@Error</div>
+    }
+</div>

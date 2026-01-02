@@ -17,7 +17,7 @@ namespace Paperless.REST.DAL.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.9")
+                .HasAnnotation("ProductVersion", "9.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -44,6 +44,12 @@ namespace Paperless.REST.DAL.Migrations
                     b.Property<Guid?>("DeletedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("deletedByUserId");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("bytea")
+                        .HasColumnName("rowVersion");
 
                     b.Property<Guid?>("WorkspaceId")
                         .HasColumnType("uuid")
@@ -304,6 +310,50 @@ namespace Paperless.REST.DAL.Migrations
                     b.ToTable("roles", (string)null);
                 });
 
+            modelBuilder.Entity("Paperless.REST.DAL.Models.Share", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("createdAt");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documentId");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expiresAt");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("passwordHash");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("token");
+
+                    b.HasKey("Id")
+                        .HasName("pK_shares");
+
+                    b.HasIndex("DocumentId")
+                        .HasDatabaseName("iX_shares_documentId");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("iX_shares_token");
+
+                    b.ToTable("shares", (string)null);
+                });
+
             modelBuilder.Entity("Paperless.REST.DAL.Models.Summary", b =>
                 {
                     b.Property<Guid>("Id")
@@ -418,6 +468,10 @@ namespace Paperless.REST.DAL.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
                         .HasColumnName("displayName");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("boolean")
+                        .HasColumnName("mustChangePassword");
 
                     b.Property<string>("Password")
                         .IsRequired()
@@ -632,6 +686,18 @@ namespace Paperless.REST.DAL.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fK_processingStatuses_documents_documentId");
+
+                    b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("Paperless.REST.DAL.Models.Share", b =>
+                {
+                    b.HasOne("Paperless.REST.DAL.Models.Document", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fK_shares_documents_documentId");
 
                     b.Navigation("Document");
                 });

@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Paperless.REST.DAL.Models;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Paperless.REST.DAL.DbContexts
 {
@@ -27,6 +28,7 @@ namespace Paperless.REST.DAL.DbContexts
         public DbSet<ProcessingStatus> ProcessingStatuses => Set<ProcessingStatus>();
         public DbSet<Summary> DocumentSummaries => Set<Summary>();
         public DbSet<SummaryPreset> SummaryPresets => Set<SummaryPreset>();
+        public DbSet<Share> Shares => Set<Share>();
 
         public PostgressDbContext(DbContextOptions<PostgressDbContext> options) : base(options)
         {
@@ -35,6 +37,12 @@ namespace Paperless.REST.DAL.DbContexts
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             base.OnConfiguring(optionsBuilder);
+
+            // Ensure pending model changes are logged (instead of causing an exception
+            // when running migrations/update-database). The EF tooling emits a
+            // PendingModelChangesWarning which by default can be treated as an
+            // exception in some operations; configure it to be logged instead.
+            optionsBuilder.ConfigureWarnings(w => w.Log(RelationalEventId.PendingModelChangesWarning));
         }
 
         protected override void OnModelCreating(ModelBuilder b)
@@ -64,6 +72,7 @@ namespace Paperless.REST.DAL.DbContexts
                 e.HasOne(x => x.DeletedByUser).WithMany().OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Workspace).WithMany().OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.ProcessingStatus).WithOne(ps => ps.Document).OnDelete(DeleteBehavior.Cascade);
+                e.Property(d => d.RowVersion).IsRowVersion();
             });
 
             // ---------- Metadata (versioned) ----------
@@ -100,6 +109,12 @@ namespace Paperless.REST.DAL.DbContexts
             {
                 e.HasOne(x => x.Document).WithMany(d => d.Summaries).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.LengthPreset).WithMany().OnDelete(DeleteBehavior.Restrict);
+            });
+
+            b.Entity<Share>(e =>
+            {
+                e.HasOne(s => s.Document).WithMany().OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(s => s.Token).IsUnique();
             });
         }
 

@@ -1,0 +1,56 @@
+:root{
+  --bg:#0f1724;
+  --sidebar:#0b1220;
+  --panel:#0f1724;
+  --accent:#2dd4bf;
+  --muted:#9ca3af;
+  --card:#0b1220;
+  --danger:#ef4444;
+}
+
+:root.light{
+  --bg:#f8fafc;
+  --sidebar:#ffffff;
+  --panel:#ffffff;
+  --accent:#0ea5a5;
+  --muted:#475569;
+  --card:#ffffff;
+  --danger:#ef4444;
+  color-scheme: light;
+}
+
+html,body{height:100%;margin:0;font-family:Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif;background:linear-gradient(180deg,#071428 0%, #071a2a 100%);color:#e6eef6}
+
+.page{display:flex;min-height:100vh}
+.sidebar{width:260px;background:var(--sidebar);color:#cbd5e1;padding:1rem 0;border-right:1px solid rgba(255,255,255,0.03)}
+.sidebar .navbar-brand{font-weight:700;color:var(--accent);margin-left:1rem}
+.nav-scrollable{padding:0.5rem}
+.nav .nav-link{color:var(--muted);display:block;padding:0.6rem 1rem;border-radius:6px;text-decoration:none}
+.nav .nav-link:hover{background:rgba(45,212,191,0.07);color:var(--accent)}
+
+main{flex:1;display:flex;flex-direction:column}
+.top-row{background:transparent;padding:0.6rem 1rem;border-bottom:1px solid rgba(255,255,255,0.02);display:flex;justify-content:flex-end}
+.content{padding:1.25rem}
+
+.card{background:rgba(10,15,25,0.6);padding:1rem;border-radius:8px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 4px 16px rgba(2,6,23,0.6)}
+
+/* forms */
+input,textarea,select{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:0.5rem;border-radius:6px;color:#e6eef6}
+label{color:var(--muted);font-size:0.9rem}
+button{background:var(--accent);color:#031018;border:0;padding:0.5rem 0.9rem;border-radius:6px;cursor:pointer}
+button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+
+.login-card{max-width:420px;margin:2rem auto;padding:1.25rem;background:rgba(255,255,255,0.02);border-radius:10px}
+
+/* notifications */
+.notifications{position:fixed;right:1rem;top:1rem;z-index:10000}
+.toast{padding:0.6rem 0.9rem;border-radius:6px;color:#071428;margin-bottom:0.4rem;min-width:180px}
+.toast.info{background:#60a5fa;color:white}
+.toast.success{background:#10b981;color:white}
+.toast.error{background:var(--danger);color:white}
+.toast.warning{background:#f59e0b;color:#071428}
+
+.doc-list{list-style:none;padding:0}
+.doc-list li{padding:0.4rem 0;border-bottom:1px dashed rgba(255,255,255,0.02)}
+
+@media (max-width:800px){.sidebar{display:none}.page{flex-direction:column}}

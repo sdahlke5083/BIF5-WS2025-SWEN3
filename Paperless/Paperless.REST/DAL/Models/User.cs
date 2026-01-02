@@ -19,6 +19,8 @@ namespace Paperless.REST.DAL.Models
         public string DisplayName { get; set; } = default!;
         [Required]
         public string Password { get; set; } = default!;
+        // flag to indicate password must be changed on first login
+        public bool MustChangePassword { get; set; } = false;
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public DateTimeOffset CreatedAt { get; set; }
 

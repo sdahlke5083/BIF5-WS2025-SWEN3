@@ -159,7 +159,11 @@ namespace Paperless.REST.BLL.Uploads
         string? metadataRaw,
         CancellationToken cancelToken = default)
         {
-            throw new NotImplementedException();
+            // Basic implementation: Save file metadata is already handled in ValidateAsync.
+            // This method should move files from temporary storage to permanent storage if required.
+            // For now, return true to indicate files should be uploaded by controller via IFileStorageService.
+            await Task.CompletedTask;
+            return true;
         }
     }
 }

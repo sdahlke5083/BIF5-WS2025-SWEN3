@@ -8,7 +8,7 @@ using Paperless.REST.BLL.Storage;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Uploads.Models;
 
-namespace Rest.Test.Controllers
+namespace Paperless.REST.Test.Controllers
 {
     [TestFixture]
     public class UploadsControllerTests
@@ -72,8 +72,8 @@ namespace Rest.Test.Controllers
             var saved = ((IEnumerable<string>)t.GetProperty("saved")!.GetValue(payload)!).ToList();
             var guids = (IEnumerable<Guid>?)t.GetProperty("guids")!.GetValue(payload);
 
-            ClassicAssert.AreEqual(2, accepted);
-            CollectionAssert.AreEquivalent(new[] { "doc1.txt", "doc2.txt" }, saved);
+            Assert.That(accepted, Is.EqualTo(2));
+            Assert.That(saved, Is.EquivalentTo(new[] { "doc1.txt", "doc2.txt" }));
             Assert.That(guids, Is.Not.Null);
 
             fileStorage.Verify(s => s.SaveFileAsync(

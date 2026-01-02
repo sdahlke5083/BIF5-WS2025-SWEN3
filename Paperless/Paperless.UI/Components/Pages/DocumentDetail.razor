@@ -1,0 +1,19 @@
+@page "/documents/{Id:guid}"
+@using Paperless.UI.Services
+@inject IUploadsApiClient Api
+@inject NavigationManager Nav
+
+<h3>Document Details</h3>
+<p>Document ID: @Id</p>
+<button @onclick="Download">Download</button>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private async Task Download()
+    {
+        // navigate to REST endpoint
+        Nav.NavigateTo($"/v1/documents/{Id}/file", forceLoad: true);
+    }
+}

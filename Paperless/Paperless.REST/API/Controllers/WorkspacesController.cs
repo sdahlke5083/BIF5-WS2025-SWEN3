@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Paperless.REST.DAL.DbContexts;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
@@ -11,7 +13,12 @@ namespace Paperless.REST.API.Controllers
     public class WorkspacesController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly PostgressDbContext _db;
 
+        public WorkspacesController(PostgressDbContext db)
+        {
+            _db = db;
+        }
         /// <summary>
         /// Add a member to a workspace
         /// </summary>
@@ -25,8 +32,29 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 201, type: typeof(WorkspaceMember))]
         public virtual IActionResult AddWorkspaceMember([FromRoute (Name = "workspaceId")][Required]Guid workspaceId, [FromBody]JsonElement body)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            if (body.ValueKind != JsonValueKind.Object)
+                return BadRequest();
+
+            if (!_db.Workspaces.Any(w => w.Id == workspaceId))
+                return NotFound();
+
+            if (!body.TryGetProperty("userId", out var userIdProp) || !Guid.TryParse(userIdProp.GetString(), out var userId))
+                return BadRequest();
+
+            if (!body.TryGetProperty("roleId", out var roleIdProp) || !Guid.TryParse(roleIdProp.GetString(), out var roleId))
+                return BadRequest();
+
+            var member = new DAL.Models.WorkspaceMember
+            {
+                WorkspaceId = workspaceId,
+                UserId = userId,
+                WorkspaceRoleId = roleId
+            };
+
+            _db.WorkspaceMembers.Add(member);
+            _db.SaveChanges();
+
+            return Created($"/v1/workspaces/{workspaceId}/members/{userId}", member);
         }
 
         /// <summary>
@@ -41,8 +69,25 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 201, type: typeof(Workspace))]
         public virtual IActionResult CreateWorkspace([FromBody]JsonElement body)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            if (body.ValueKind != JsonValueKind.Object)
+                return BadRequest();
+
+            var name = body.GetProperty("name").GetString();
+            var description = body.TryGetProperty("description", out var d) ? d.GetString() : null;
+
+            if (string.IsNullOrWhiteSpace(name))
+                return BadRequest();
+
+            var ws = new DAL.Models.Workspace
+            {
+                Name = name,
+                Description = description
+            };
+
+            _db.Workspaces.Add(ws);
+            _db.SaveChanges();
+
+            return Created($"/v1/workspaces/{ws.Id}", new { id = ws.Id });
         }
 
         /// <summary>
@@ -55,8 +100,13 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         public virtual IActionResult DeleteWorkspace([FromRoute (Name = "workspaceId")][Required]Guid workspaceId)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var ws = _db.Workspaces.FirstOrDefault(w => w.Id == workspaceId);
+            if (ws is null)
+                return NotFound();
+
+            _db.Workspaces.Remove(ws);
+            _db.SaveChanges();
+            return NoContent();
         }
 
         /// <summary>
@@ -72,8 +122,17 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult GetWorkspace([FromRoute (Name = "workspaceId")][Required]Guid workspaceId)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var ws = _db.Workspaces.Include(w => w.Members).ThenInclude(m => m.User).FirstOrDefault(w => w.Id == workspaceId);
+            if (ws is null)
+                return NotFound();
+
+            return Ok(new
+            {
+                id = ws.Id,
+                name = ws.Name,
+                description = ws.Description,
+                members = ws.Members.Select(m => new { userId = m.UserId, roleId = m.WorkspaceRoleId })
+            });
         }
 
         /// <summary>
@@ -87,8 +146,11 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(ListWorkspaceMembers200Response))]
         public virtual IActionResult ListWorkspaceMembers([FromRoute (Name = "workspaceId")][Required]Guid workspaceId)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var members = _db.WorkspaceMembers.Where(m => m.WorkspaceId == workspaceId)
+                .Select(m => new { userId = m.UserId, roleId = m.WorkspaceRoleId })
+                .ToList();
+
+            return Ok(members);
         }
 
         /// <summary>
@@ -101,8 +163,8 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(ListWorkspaces200Response))]
         public virtual IActionResult ListWorkspaces()
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var ws = _db.Workspaces.Select(w => new { id = w.Id, name = w.Name, description = w.Description }).ToList();
+            return Ok(ws);
         }
 
         /// <summary>
@@ -121,8 +183,20 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 412, type: typeof(Problem))]
         public virtual IActionResult PatchWorkspace([FromRoute (Name = "workspaceId")][Required]Guid workspaceId, [FromBody]JsonElement body, [FromHeader (Name = "If-Match")]string ifMatch)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var ws = _db.Workspaces.FirstOrDefault(w => w.Id == workspaceId);
+            if (ws is null)
+                return NotFound();
+
+            if (body.ValueKind != JsonValueKind.Object)
+                return BadRequest();
+
+            if (body.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String)
+                ws.Name = n.GetString()!;
+            if (body.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String)
+                ws.Description = d.GetString();
+
+            _db.SaveChanges();
+            return Ok(new { id = ws.Id });
         }
 
         /// <summary>
@@ -136,8 +210,13 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         public virtual IActionResult RemoveWorkspaceMember([FromRoute (Name = "workspaceId")][Required]Guid workspaceId, [FromRoute (Name = "userId")][Required]Guid userId)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var m = _db.WorkspaceMembers.FirstOrDefault(w => w.WorkspaceId == workspaceId && w.UserId == userId);
+            if (m is null)
+                return NotFound();
+
+            _db.WorkspaceMembers.Remove(m);
+            _db.SaveChanges();
+            return NoContent();
         }
     }
 }

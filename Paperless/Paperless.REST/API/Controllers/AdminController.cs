@@ -23,7 +23,8 @@ namespace Paperless.REST.API.Controllers
         [ProducesResponseType(statusCode: 200, type: typeof(BasicStatusResponse))]
         public virtual IActionResult Health()
         {
-            _logger.Trace($"Health requested from {Request.HttpContext.Connection.RemoteIpAddress}");
+            var ip = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
+            _logger.Trace($"Health requested from {ip}");
 
             return Ok(new BasicStatusResponse { Status = "OK" });
         }
@@ -40,7 +41,8 @@ namespace Paperless.REST.API.Controllers
         [ProducesResponseType(statusCode: 503, type: typeof(BasicStatusResponse))]
         public virtual IActionResult Ready()
         {
-            _logger.Trace($"Readiness requested from {Request.HttpContext.Connection.RemoteIpAddress}");
+            var rip = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
+            _logger.Trace($"Readiness requested from {rip}");
             //TODO: check DB connection, other dependencies, ...
             var dbReady = true;
 
@@ -79,7 +81,7 @@ namespace Paperless.REST.API.Controllers
         /// <summary>
         /// Query audit logs (admin only)
         /// </summary>
-        /// <example>?Level=info&Page=1&PageSize=20</example>
+        /// <example>?Level=info&amp;Page=1&amp;PageSize=20</example>
         /// <param name="requestQuery">Query parameters for filtering and pagination</param>
         /// <response code="200">OK</response>
         /// <response code="400">Bad request (invalid parameters)</response>

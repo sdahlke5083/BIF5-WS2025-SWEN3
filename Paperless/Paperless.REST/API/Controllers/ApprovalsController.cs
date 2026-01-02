@@ -23,8 +23,10 @@ namespace Paperless.REST.API.Controllers
         [ProducesResponseType(StatusCodes.Status501NotImplemented)]
         public virtual IActionResult ListApprovals()
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            // Return empty list for now (approvals feature not yet implemented)
+            _logger.Trace("Approvals requested");
+            var approvals = new List<object>();
+            return Ok(approvals);
         }
     }
 }

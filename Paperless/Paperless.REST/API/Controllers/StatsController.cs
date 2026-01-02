@@ -10,6 +10,12 @@ namespace Paperless.REST.API.Controllers
     public class StatsController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly DAL.DbContexts.PostgressDbContext _db;
+
+        public StatsController(DAL.DbContexts.PostgressDbContext db)
+        {
+            _db = db;
+        }
 
         /// <summary>
         /// Get daily access stats for a document
@@ -24,8 +30,25 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(AccessStatsSeries))]
         public virtual IActionResult GetDocumentStats([FromRoute (Name = "id")][Required]Guid id, [FromQuery (Name = "from")]DateOnly? from, [FromQuery (Name = "to")]DateOnly? to)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            // Basic implementation: return zeros for requested range (no analytics store available)
+            if (!_db.Documents.Any(d => d.Id == id))
+                return NotFound();
+
+            var end = to ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var start = from ?? end.AddDays(-6);
+
+            if (start > end)
+                return BadRequest("Invalid range");
+
+            var list = new List<object>();
+            var d = start;
+            while (d <= end)
+            {
+                list.Add(new { date = d.ToString("yyyy-MM-dd"), views = 0, downloads = 0 });
+                d = d.AddDays(1);
+            }
+
+            return Ok(new { documentId = id, series = list });
         }
 
         /// <summary>
@@ -41,8 +64,9 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 200, type: typeof(GetTopStats200Response))]
         public virtual IActionResult GetTopStats([FromQuery (Name = "period")]string period, [FromQuery (Name = "metric")]string metric, [FromQuery (Name = "limit")][Range(1, 100)]int? limit)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            // No analytics backend yet: return empty list
+            var lim = Math.Clamp(limit.GetValueOrDefault(10), 1, 100);
+            return Ok(new { period = period, metric = metric, items = new List<object>() });
         }
     }
 }

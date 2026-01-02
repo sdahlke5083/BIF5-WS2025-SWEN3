@@ -74,6 +74,14 @@ namespace Paperless.REST.API.Middleware
                         detail = daex.InnerException.Message;
                     logAsError = true;
                     break;
+                case FileStorageException fst:
+                    status = HttpStatusCode.BadGateway;                // 502 - storage service issues
+                    type = "urn:paperless:errors:storage";
+                    title = "File storage error";
+                    if (fst.InnerException is not null)
+                        detail = fst.InnerException.Message;
+                    logAsError = true;
+                    break;
             }
 
             var traceId = Activity.Current?.Id ?? context.TraceIdentifier;

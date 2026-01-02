@@ -15,6 +15,32 @@ ENV RABBITMQ_HOST=paperless-rabbitmq \
     RABBITMQ_EXCHANGE=tasks \
     RABBITMQ_EXCHANGE_TYPE=direct
 
+# Default Postgres env (can be overridden in docker-compose)
+ENV POSTGRES_HOST=paperless-db \
+    POSTGRES_PORT=5432 \
+    POSTGRES_DB=paperless \
+    POSTGRES_USER=paperless \
+    POSTGRES_PASSWORD=paperless
+
+# MinIO defaults (can be overridden)
+ENV MINIO_ROOT_USER=minioadmin \
+    MINIO_ROOT_PASSWORD=minioadmin \
+    MINIO_BUCKET=paperless \
+    MINIO_ENDPOINT=paperless-minio:9000 \
+    MINIO_USE_SSL=false
+
+# Elasticsearch defaults
+ENV ELASTICSEARCH_HOST=paperless-elasticsearch \
+    ELASTICSEARCH_PORT=9200
+
+# JWT defaults (please override in production using secure secrets)
+ENV Jwt__Key=please_change_this_secret_in_production \
+    Jwt__Issuer=paperless.local \
+    Jwt__Audience=paperless.local
+
+# Ensure ASP.NET Core listens on port 8081 inside container (matches docker-compose)
+ENV ASPNETCORE_URLS=http://+:8081
+
 
 # Diese Stufe wird zum Erstellen des Dienstprojekts verwendet.
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build

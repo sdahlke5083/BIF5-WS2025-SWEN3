@@ -122,6 +122,37 @@ services.AddSwaggerGen(options =>
     options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory,$"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
 });
 
+
+// Authentication & Authorization
+services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    // Minimal JWT validation setup - expects configuration at "Jwt:Key", "Jwt:Issuer" and "Jwt:Audience"
+    var key = builder.Configuration["Jwt:Key"] ?? "please_change_this_secret_in_production";
+    var issuer = builder.Configuration["Jwt:Issuer"] ?? "paperless.local";
+    var audience = builder.Configuration["Jwt:Audience"] ?? "paperless.local";
+
+    options.RequireHttpsMetadata = false;
+    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
+        ValidIssuer = issuer,
+        ValidAudience = audience
+    };
+});
+
+services.AddAuthorization();
+
+
+
 var app = builder.Build();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -143,8 +174,8 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-
-//app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapSwagger();

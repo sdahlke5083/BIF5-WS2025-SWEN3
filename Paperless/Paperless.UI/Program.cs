@@ -14,11 +14,40 @@ namespace Paperless.UI
 
             // Configure HttpClient for REST API
             var apiBase = builder.Configuration["ApiBaseUrl"] ?? "http://paperless.rest:8080";
-            builder.Services.AddHttpClient<Services.IUploadsApiClient, Services.UploadsApiClient>(client =>
+            if (!apiBase.EndsWith("/")) apiBase += "/";
+
+            // Protected browser storage for token persistence (Server interactive components)
+            builder.Services.AddServerSideBlazor();
+
+            // plain client for auth (no auth header)
+            builder.Services.AddHttpClient("auth", client => client.BaseAddress = new Uri(apiBase));
+
+            // register AuthService using the plain client and protected storage
+            builder.Services.AddScoped<Services.IAuthService>(sp =>
             {
-                if (!apiBase.EndsWith("/")) apiBase += "/";
-                client.BaseAddress = new Uri(apiBase);
+                var factory = sp.GetRequiredService<System.Net.Http.IHttpClientFactory>();
+                var client = factory.CreateClient("auth");
+                var js = sp.GetRequiredService<Microsoft.JSInterop.IJSRuntime>();
+                return new Services.AuthService(client, js);
             });
+
+            // register DelegatingHandler to attach token
+            builder.Services.AddTransient<Services.AuthMessageHandler>();
+
+            // named client for API calls that will have auth header attached
+            builder.Services.AddHttpClient("api", client => client.BaseAddress = new Uri(apiBase))
+                .AddHttpMessageHandler<Services.AuthMessageHandler>();
+
+            // typed API clients using the authenticated named client
+            builder.Services.AddHttpClient<Services.IUploadsApiClient, Services.UploadsApiClient>(client => client.BaseAddress = new Uri(apiBase))
+                .AddHttpMessageHandler<Services.AuthMessageHandler>();
+            builder.Services.AddHttpClient<Services.IWorkspacesApiClient, Services.WorkspacesApiClient>(client => client.BaseAddress = new Uri(apiBase))
+                .AddHttpMessageHandler<Services.AuthMessageHandler>();
+            builder.Services.AddHttpClient<Services.IUsersApiClient, Services.UsersApiClient>(client => client.BaseAddress = new Uri(apiBase))
+                .AddHttpMessageHandler<Services.AuthMessageHandler>();
+
+            builder.Services.AddSingleton<Services.INotificationService, Services.NotificationService>();
+            builder.Services.AddScoped<Services.IThemeService, Services.ThemeService>();
 
             var app = builder.Build();
 

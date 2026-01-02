@@ -1,0 +1,20 @@
+@page "/documents"
+@using Paperless.UI.Services
+@inject IUploadsApiClient Api
+
+<h3>Documents</h3>
+<p>Simple list of documents (IDs)</p>
+<ul>
+    @foreach (var d in Docs)
+    {
+        <li><a href="/documents/@d">@d</a></li>
+    }
+</ul>
+
+@code {
+    private List<Guid> Docs = new();
+    protected override async Task OnInitializedAsync()
+    {
+        Docs = await Api.SearchAsync("", 1, 50);
+    }
+}

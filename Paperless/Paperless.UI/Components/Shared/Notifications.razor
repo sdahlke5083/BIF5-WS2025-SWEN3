@@ -1,0 +1,33 @@
+@inject Paperless.UI.Services.INotificationService NotificationService
+
+<div class="notifications">
+    @if (messages.Count > 0)
+    {
+        foreach (var m in messages)
+        {
+            <div class="toast @m.level">@m.text</div>
+        }
+    }
+</div>
+
+@code {
+    private List<(string text, string level)> messages = new();
+
+    protected override void OnInitialized()
+    {
+        NotificationService.OnNotify += OnNotify;
+    }
+
+    private void OnNotify(string text, string level)
+    {
+        messages.Add((text, level));
+        _ = InvokeAsync(StateHasChanged);
+        // auto remove after a short delay
+        _ = Task.Run(async () => { await Task.Delay(5000); messages.Remove((text, level)); await InvokeAsync(StateHasChanged); });
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnNotify -= OnNotify;
+    }
+}

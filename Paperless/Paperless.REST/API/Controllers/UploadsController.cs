@@ -106,6 +106,7 @@ namespace Paperless.REST.API.Controllers
                 var objectName = $"{documentId:D}/{originalFileName}";
 
                 await using var stream = formFile.OpenReadStream();
+                // Prefer streaming upload if supported
                 await _fileStorageService.SaveFileAsync(
                     objectName,
                     stream,

@@ -32,5 +32,7 @@ namespace Paperless.REST.DAL.Models
         public ICollection<DocumentTag> DocumentTags { get; set; } = new List<DocumentTag>();
         public ICollection<FileVersion> FileVersions { get; set; } = new List<FileVersion>();
         public ICollection<Summary> Summaries { get; set; } = new List<Summary>();
+        [Timestamp]
+        public byte[]? RowVersion { get; set; }
     }
 }
