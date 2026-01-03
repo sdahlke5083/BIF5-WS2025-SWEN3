@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Paperless.UI.Services;
 
 namespace Paperless.UI.Components.Pages;
 
@@ -8,22 +9,23 @@ public partial class Search
     public Services.IUploadsApiClient Api { get; set; } = default!;
 
     private string Query { get; set; } = string.Empty;
-    private List<Guid>? Results { get; set; }
+    private List<SearchResultItemDto>? Results { get; set; }
     private bool IsLoading { get; set; }
 
     private async Task DoSearch()
     {
-        if (string.IsNullOrWhiteSpace(Query)) return;
+        if (string.IsNullOrWhiteSpace(Query)) 
+            return;
         IsLoading = true;
         Results = null;
 
         try
         {
-            Results = await Api.SearchAsync(Query);
+            Results = await Api.SearchDetailedAsync(Query);
         }
         catch (Exception ex)
         {
-            Results = new List<Guid>();
+            Results = new List<SearchResultItemDto>();
             Console.WriteLine(ex.Message);
         }
         finally

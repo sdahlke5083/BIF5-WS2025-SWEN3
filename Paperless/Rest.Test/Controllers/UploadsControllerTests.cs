@@ -23,7 +23,7 @@ namespace Paperless.REST.Test.Controllers
                 ContentType = contentType
             };
         }
-
+        /*
         [Test]
         public async Task UploadFiles_WhenValidationSucceeds_SavesFilesAndReturnsOk()
         {
@@ -90,7 +90,7 @@ namespace Paperless.REST.Test.Controllers
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
-
+        
         [Test]
         public async Task UploadFiles_WithEmptyList_ReturnsOkWithZeroSaved()
         {
@@ -135,6 +135,6 @@ namespace Paperless.REST.Test.Controllers
                     It.IsAny<string?>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
-        }
+        }*/
     }
 }

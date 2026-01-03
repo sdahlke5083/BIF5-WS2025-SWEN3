@@ -97,6 +97,8 @@ namespace Paperless.REST.DAL.DbContexts
                 e.HasOne(x => x.Document).WithMany(d => d.FileVersions).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.FileType).WithMany().OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(x => x.UploadedByUser).WithMany().OnDelete(DeleteBehavior.SetNull);
+
+                e.Property(x => x.UploadedAt).ValueGeneratedNever();
             });
 
             b.Entity<ProcessingStatus>(e =>

@@ -45,6 +45,8 @@ namespace Paperless.UI
                 .AddHttpMessageHandler<Services.AuthMessageHandler>();
             builder.Services.AddHttpClient<Services.IUsersApiClient, Services.UsersApiClient>(client => client.BaseAddress = new Uri(apiBase))
                 .AddHttpMessageHandler<Services.AuthMessageHandler>();
+            builder.Services.AddHttpClient<Services.IDocumentsApiClient, Services.DocumentsApiClient>(client => client.BaseAddress = new Uri(apiBase))
+                .AddHttpMessageHandler<Services.AuthMessageHandler>();
 
             builder.Services.AddSingleton<Services.INotificationService, Services.NotificationService>();
             builder.Services.AddScoped<Services.IThemeService, Services.ThemeService>();

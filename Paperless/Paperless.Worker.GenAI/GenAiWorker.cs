@@ -32,7 +32,7 @@ namespace Paperless.Worker.GenAI
             {
                 Timeout = TimeSpan.FromSeconds(30)
             };
-            _restBaseUrl = Environment.GetEnvironmentVariable("REST_API_URL") ?? "http://paperless-rest:8080";
+            _restBaseUrl = Environment.GetEnvironmentVariable("REST_API_URL") ?? "http://paperless-rest:8081";
             // set base address for easier calls
             try
             {

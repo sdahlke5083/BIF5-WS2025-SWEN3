@@ -76,5 +76,18 @@ namespace Paperless.UI.Services
         }
 
         private class SearchResponseDto { public List<Guid> ids { get; set; } = new(); }
+
+        public async Task<List<SearchResultItemDto>> SearchDetailedAsync(string q, int page = 1, int pageSize = 20)
+        {
+            var url = $"/v1/search?q={Uri.EscapeDataString(q)}&page={page}&pageSize={pageSize}";
+            var resp = await _http.GetFromJsonAsync<SearchDetailedResponseDto>(url);
+            return resp?.items ?? new List<SearchResultItemDto>();
+        }
+
+        private class SearchDetailedResponseDto
+        {
+            public List<SearchResultItemDto> items { get; set; } = new();
+        }
+
     }
 }

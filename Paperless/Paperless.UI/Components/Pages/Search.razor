@@ -26,9 +26,42 @@ else if (Results is not null)
     else
     {
         <ul class="list-group">
-            @foreach (var id in Results)
+            @foreach (var r in Results)
             {
-                <li class="list-group-item">@id</li>
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="fw-bold">@(!string.IsNullOrWhiteSpace(r.fileName) ? r.fileName : "(unknown)")</div>
+                            <div class="text-muted" style="font-size: 0.9em;">
+                                Uploaded: @(r.uploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
+                            </div>
+
+                            <details class="mt-2">
+                                <summary><strong>OCR</strong></summary>
+                                @if (!string.IsNullOrWhiteSpace(r.ocrPreview))
+                                {
+                                    <div class="mt-2">@r.ocrPreview</div>
+                                }
+                                else
+                                {
+                                    <div class="mt-2 text-muted">(not available yet)</div>
+                                }
+                            </details>
+
+                            <details class="mt-2">
+                                <summary><strong>Summary</strong></summary>
+                                @if (!string.IsNullOrWhiteSpace(r.summaryPreview))
+                                {
+                                    <div class="mt-2">@r.summaryPreview</div>
+                                }
+                                else
+                                {
+                                    <div class="mt-2 text-muted">(not available yet)</div>
+                                }
+                            </details>
+                        </div>
+                    </div>
+                </li>
             }
         </ul>
     }

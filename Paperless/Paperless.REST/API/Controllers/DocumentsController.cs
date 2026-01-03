@@ -135,6 +135,7 @@ namespace Paperless.REST.API.Controllers
 
             // build a simple response
             var latestMeta = doc.MetadataVersions.OrderByDescending(m => m.Version).FirstOrDefault();
+            var latestFile = doc.FileVersions.OrderByDescending(f => f.Version).FirstOrDefault();
 
             return Ok(new
             {
@@ -149,6 +150,11 @@ namespace Paperless.REST.API.Controllers
                     description = latestMeta.Description,
                     languageCode = latestMeta.LanguageCode,
                     createdAt = latestMeta.CreatedAt
+                },
+                file = latestFile is null ? null : new
+                {
+                    originalFileName = latestFile.OriginalFileName,
+                    uploadedAt = latestFile.UploadedAt
                 }
             });
         }
