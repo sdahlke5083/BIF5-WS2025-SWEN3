@@ -24,7 +24,10 @@ else
         @foreach (var d in Documents)
         {
             <li class="list-group-item">
-                <DocumentListItem Title="@d.FileName" UploadedAt="@d.UploadedAt" ThumbnailDataUrl="@d.ThumbnailDataUrl">
+                <DocumentListItem Title="@d.FileName"
+                                  UploadedAt="@d.UploadedAt"
+                                  ThumbnailDataUrl="@d.ThumbnailDataUrl"
+                                  DocumentId="@d.Id">
                     <details class="mt-2">
                         <summary><strong>OCR</strong></summary>
                         @if (!string.IsNullOrWhiteSpace(d.Ocr))

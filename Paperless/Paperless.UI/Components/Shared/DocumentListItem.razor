@@ -1,34 +1,65 @@
-﻿@using System
+﻿﻿@using System
 @using Microsoft.AspNetCore.Components
 
-<div class="d-flex gap-3 align-items-start">
-    <!-- LEFT: thumbnail -->
-    <div style="width: 140px; flex: 0 0 140px;">
+<div class="doc-item-grid">
+    <!-- 25%: Thumbnail -->
+    <div class="doc-item-thumb">
         @if (!string.IsNullOrWhiteSpace(ThumbnailDataUrl))
         {
-            <img src="@ThumbnailDataUrl"
-                 class="img-fluid rounded border"
-                 style="max-height: 180px; object-fit: cover;" />
+            <img src="@ThumbnailDataUrl" alt="Preview" />
         }
         else
         {
-            <div class="border rounded d-flex align-items-center justify-content-center text-muted"
-                 style="height: 180px; font-size: 0.85em;">
-                (no preview)
+            <div class="doc-item-thumb-empty">
+                <b>(no preview)</b>
             </div>
         }
     </div>
 
-    <!-- RIGHT: -->
-    <div class="flex-grow-1">
-        <div class="fw-bold">
-            @Title
-        </div>
-        <div class="text-muted" style="font-size: 0.9em;">
-            Uploaded: @(UploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
+    <!-- 25%: OCR + Summary (dropdowns) -->
+    <div class="doc-item-details">
+        <div class="doc-item-header">
+            <div class="doc-item-title">@Title</div>
+            <div class="doc-item-sub">
+                Uploaded: @(UploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
+            </div>
         </div>
 
         @ChildContent
+    </div>
+
+    <!-- 50%: Metadata panel (different tone) -->
+    <div class="doc-item-meta">
+        <div class="doc-item-meta-inner">
+            @if (MetadataContent is not null)
+            {
+                @MetadataContent
+            }
+            else
+            {
+                <div class="doc-item-meta-title">Metadata</div>
+
+                <div class="doc-item-meta-grid">
+                    <div class="meta-label">Document Id</div>
+                    <div class="meta-value">@(DocumentId?.ToString() ?? "-")</div>
+
+                    <div class="meta-label">Title</div>
+                    <div class="meta-value">@(!string.IsNullOrWhiteSpace(MetaTitle) ? MetaTitle : "-")</div>
+
+                    <div class="meta-label">Description</div>
+                    <div class="meta-value">@(!string.IsNullOrWhiteSpace(MetaDescription) ? MetaDescription : "-")</div>
+
+                    <div class="meta-label">Language</div>
+                    <div class="meta-value">@(!string.IsNullOrWhiteSpace(MetaLanguageCode) ? MetaLanguageCode : "-")</div>
+
+                    <div class="meta-label">Created</div>
+                    <div class="meta-value">@(MetaCreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</div>
+
+                    <div class="meta-label">Size</div>
+                    <div class="meta-value">@(MetaSizeBytes.HasValue? FormatBytes(MetaSizeBytes.Value) : "-")</div>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
@@ -38,5 +69,28 @@
     [Parameter] public DateTimeOffset? UploadedAt { get; set; }
     [Parameter] public string? ThumbnailDataUrl { get; set; }
 
+    // Optional metadata (right 50%)
+    [Parameter] public Guid? DocumentId { get; set; }
+    [Parameter] public string? MetaTitle { get; set; }
+    [Parameter] public string? MetaDescription { get; set; }
+    [Parameter] public string? MetaLanguageCode { get; set; }
+    [Parameter] public DateTimeOffset? MetaCreatedAt { get; set; }
+    [Parameter] public long? MetaSizeBytes { get; set; }
+
+    [Parameter] public RenderFragment? MetadataContent { get; set; }
+
+    // OCR + Summary dropdowns live  (middle 25%).
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private static string FormatBytes(long bytes)
+    {
+        const long KB = 1024;
+        const long MB = KB * 1024;
+        const long GB = MB * 1024;
+
+        if (bytes >= GB) return $"{bytes / (double)GB:0.##} GB";
+        if (bytes >= MB) return $"{bytes / (double)MB:0.##} MB";
+        if (bytes >= KB) return $"{bytes / (double)KB:0.##} KB";
+        return $"{bytes} B";
+    }
 }
