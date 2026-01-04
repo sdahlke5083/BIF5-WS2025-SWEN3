@@ -19,4 +19,12 @@ public class DocumentsApiClient : IDocumentsApiClient
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadFromJsonAsync<DocumentTextDto>();
     }
+
+    public async Task<DocumentListPageDto> ListAsync(string? q = "", int page = 1, int pageSize = 50)
+    {
+        var url = $"/v1/documents?q={Uri.EscapeDataString(q ?? string.Empty)}&page={page}&pageSize={pageSize}";
+        var resp = await _http.GetFromJsonAsync<DocumentListPageDto>(url);
+        return resp ?? new DocumentListPageDto { page = page, pageSize = pageSize, total = 0, items = new() };
+    }
+
 }

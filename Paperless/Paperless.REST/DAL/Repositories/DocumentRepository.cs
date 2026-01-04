@@ -91,6 +91,7 @@ namespace Paperless.REST.DAL.Repositories
                 .Where(d => d.DeletedAt == null)
                 .Include(d => d.ProcessingStatus)
                 .Include(d => d.MetadataVersions)
+                .Include(d => d.FileVersions)
                 .AsNoTracking()
                 .ToListAsync(ct);
         }
@@ -101,6 +102,7 @@ namespace Paperless.REST.DAL.Repositories
                 .Where(d => d.DeletedAt != null)
                 .Include(d => d.ProcessingStatus)
                 .Include(d => d.MetadataVersions)
+                .Include(d => d.FileVersions)
                 .AsNoTracking()
                 .ToListAsync(ct);
         }
