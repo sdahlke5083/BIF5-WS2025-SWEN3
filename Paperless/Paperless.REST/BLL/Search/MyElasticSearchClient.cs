@@ -1,8 +1,9 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Clients.Elasticsearch.IndexManagement;
-using Elastic.Clients.Elasticsearch.QueryDsl;
 using Elastic.Clients.Elasticsearch.Mapping;
+using Elastic.Clients.Elasticsearch.QueryDsl;
 
 namespace Paperless.REST.BLL.Search;
 
@@ -22,6 +23,22 @@ public class MyElasticSearchClient
 
         // fire-and-forget ensure index
         _ = EnsureIndexAsync();
+    }
+
+    /// <summary>
+    /// Test connectivity to the Elasticsearch cluster by issuing a lightweight ping.
+    /// </summary>
+    public async Task<bool> TestConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var resp = await _esClient.PingAsync(cancellationToken).ConfigureAwait(false);
+            return resp.IsValidResponse;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async Task EnsureIndexAsync()
@@ -86,5 +103,65 @@ public class MyElasticSearchClient
             if (Guid.TryParse(hit.Id, out var gid)) results.Add(gid);
         }
         return results;
+    }
+    public sealed class DocumentTextIndexEntry
+    {
+        [JsonPropertyName("documentId")]
+        public Guid DocumentId { get; set; }
+
+        [JsonPropertyName("ocr")]
+        public string? Ocr { get; set; }
+
+        [JsonPropertyName("summary")]
+        public string? Summary { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public DateTime Timestamp { get; set; }
+    }
+
+    public sealed class DocumentTextSearchHit
+    {
+        public Guid DocumentId { get; init; }
+        public string? Ocr { get; init; }
+        public string? Summary { get; init; }
+        public DateTime Timestamp { get; init; }
+    }
+
+    public async Task<List<DocumentTextSearchHit>> SearchWithTextAsync(string query, int from = 0, int size = 20)
+    {
+        var resp = await _esClient.SearchAsync<DocumentTextIndexEntry>(s => s
+            .Index(_indexName)
+            .From(from)
+            .Size(size)
+            .Query(q => q.QueryString(qs => qs.Query($"*{query}*")))
+        );
+
+        if (!resp.IsValidResponse)
+            throw new InvalidOperationException("Elasticsearch search failed");
+
+        var hits = new List<DocumentTextSearchHit>();
+        foreach (var h in resp.Hits)
+        {
+            if (!Guid.TryParse(h.Id, out var gid))
+                continue;
+
+            hits.Add(new DocumentTextSearchHit
+            {
+                DocumentId = gid,
+                Ocr = h.Source?.Ocr,
+                Summary = h.Source?.Summary,
+                Timestamp = h.Source?.Timestamp ?? default
+            });
+        }
+
+        return hits;
+    }
+
+    public async Task<DocumentTextIndexEntry?> GetTextByIdAsync(Guid documentId)
+    {
+        var resp = await _esClient.GetAsync<DocumentTextIndexEntry>(_indexName, documentId.ToString());
+        if (!resp.Found) 
+            return null;
+        return resp.Source;
     }
 }

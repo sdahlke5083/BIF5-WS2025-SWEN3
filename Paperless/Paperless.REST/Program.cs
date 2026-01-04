@@ -1,8 +1,11 @@
-using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.Ingest;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Paperless.REST.API.Middleware;
+using Paperless.REST.BLL.Diagnostics;
 using Paperless.REST.BLL.Models;
 using Paperless.REST.BLL.Search;
 using Paperless.REST.BLL.Storage;
@@ -42,7 +45,8 @@ services.Configure<MinioStorageOptions>(
         .GetSection("Minio"));
 
 services.AddSingleton<IFileStorageService, MinioFileStorageService>();
-
+services.AddScoped<IInfrastructureHealthChecker, InfrastructureHealthChecker>();
+services.AddScoped<IDiagnosticsService, DiagnosticsService>();
 
 // Add services to the container.
 services.AddControllers().AddJsonOptions(x =>
@@ -56,6 +60,10 @@ services.AddHttpClient();
 // Register MyElasticSearchClient as singleton using the official Elasticsearch .NET client
 services.AddSingleton<MyElasticSearchClient>();
 
+// Register HttpContextAccessor and our authorization handler
+services.AddHttpContextAccessor();
+// Note: handler implemented below in this file; register as Scoped to allow repository usage per-request
+services.AddScoped<IAuthorizationHandler, ShareTokenHandler>();
 
 services.AddDbContext<PostgressDbContext>(o =>
 {
@@ -117,10 +125,65 @@ services.AddSwaggerGen(options =>
     options.AddServer(new OpenApiServer
     {
         Description = "Local development (HTTPS/TLS)",
-        Url = "https://localhost:8081/",
+        Url = "http://localhost:8081/",
     });
-    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory,$"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
+    var jwtSecuritySchema = new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"{token}\"",
+        Name = "Authorization",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = JwtBearerDefaults.AuthenticationScheme
+        }
+    };
+    options.AddSecurityDefinition(jwtSecuritySchema.Reference.Id,jwtSecuritySchema);
+    // add custom filter to only enable auth for enpoints with [Auth] tag
+    options.OperationFilter<AuthorizeCheckOperationFilter>(jwtSecuritySchema);
 });
+
+
+// Authentication & Authorization
+services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    // Minimal JWT validation setup - expects configuration at "Jwt:Key", "Jwt:Issuer" and "Jwt:Audience"
+    var key = builder.Configuration["Jwt:Key"] ?? "please_change_this_secret_in_production";
+    var issuer = builder.Configuration["Jwt:Issuer"] ?? "paperless.local";
+    var audience = builder.Configuration["Jwt:Audience"] ?? "paperless.local";
+
+    options.RequireHttpsMetadata = false;
+    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    {
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
+        ValidIssuer = issuer,
+        ValidAudience = audience
+    };
+});
+
+services.AddAuthorization(options =>
+{
+    options.AddPolicy("shareToken", policy =>
+    {
+        // Policy erfüllt wenn entweder angemeldeter Benutzer mit Role-Claim ODER gültiges Share-Passwort für das Dokument
+        policy.AddRequirements(new ShareTokenRequirement());
+    });
+});
+
+
 
 var app = builder.Build();
 
@@ -143,8 +206,8 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
-
-//app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapSwagger();

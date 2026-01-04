@@ -10,6 +10,14 @@ namespace Paperless.REST.API.Controllers
     public class ProcessingController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly DAL.DbContexts.PostgressDbContext _db;
+        private readonly BLL.Worker.IDocumentEventPublisher _publisher;
+
+        public ProcessingController(DAL.DbContexts.PostgressDbContext db, BLL.Worker.IDocumentEventPublisher publisher)
+        {
+            _db = db;
+            _publisher = publisher;
+        }
 
         /// <summary>
         /// Get processing status (OCR, Summary, Index) for a document
@@ -28,8 +36,17 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult GetProcessingStatus([FromRoute (Name = "id")][Required]Guid id)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var ps = _db.ProcessingStatuses.FirstOrDefault(p => p.DocumentId == id);
+            if (ps is null) return NotFound();
+            return Ok(new
+            {
+                documentId = ps.DocumentId,
+                ocr = ps.Ocr.ToString().ToLowerInvariant(),
+                summary = ps.Summary.ToString().ToLowerInvariant(),
+                index = ps.Index.ToString().ToLowerInvariant(),
+                lastError = ps.LastError,
+                updatedAt = ps.UpdatedAt
+            });
         }
 
         /// <summary>
@@ -48,8 +65,12 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult RedoOcr([FromRoute (Name = "id")][Required]Guid id)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var doc = _db.Documents.FirstOrDefault(d => d.Id == id);
+            if (doc is null) return NotFound();
+
+            // publish a message to queue for OCR
+            _publisher.PublishDocumentUploadedAsync(id.ToString()).GetAwaiter().GetResult();
+            return Accepted();
         }
 
         /// <summary>
@@ -68,8 +89,12 @@ namespace Paperless.REST.API.Controllers
         //[ProducesResponseType(statusCode: 404, type: typeof(Problem))]
         public virtual IActionResult RedoSummary([FromRoute (Name = "id")][Required]Guid id)
         {
-            //TODO: Implement this
-            return StatusCode(501, default);
+            var doc = _db.Documents.FirstOrDefault(d => d.Id == id);
+            if (doc is null) return NotFound();
+
+            // publish a message for summary (reuse same routing key via publisher implementation)
+            _publisher.PublishDocumentUploadedAsync(id.ToString()).GetAwaiter().GetResult();
+            return Accepted();
         }
     }
 }

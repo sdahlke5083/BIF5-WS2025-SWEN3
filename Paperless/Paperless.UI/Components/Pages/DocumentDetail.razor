@@ -1,0 +1,68 @@
+@page "/documents/{Id:guid}"
+@inject Paperless.UI.Services.IDocumentsApiClient DocsApi
+@inject NavigationManager Nav
+
+<h3>Document Details</h3>
+
+@if (loading)
+{
+    <p>Loading…</p>
+}
+else if (doc is null)
+{
+    <p>Document not found.</p>
+}
+else
+{
+    <div class="mb-3">
+        <div class="fw-bold">@((doc.file?.originalFileName) ?? doc.id.ToString())</div>
+        <div class="text-muted" style="font-size:0.9em;">
+            Uploaded: @(doc.file?.uploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
+        </div>
+    </div>
+
+    <button class="btn btn-sm btn-primary" @onclick="Download">Download</button>
+
+    <hr />
+
+    <h5>OCR</h5>
+    @if (text is null || string.IsNullOrWhiteSpace(text.ocr))
+    {
+        <p class="text-muted">(OCR not available yet)</p>
+    }
+    else
+    {
+        <pre style="white-space: pre-wrap;">@text.ocr</pre>
+    }
+
+    <h5>Summary</h5>
+    @if (text is null || string.IsNullOrWhiteSpace(text.summary))
+    {
+        <p class="text-muted">(No summary available)</p>
+    }
+    else
+    {
+        <pre style="white-space: pre-wrap;">@text.summary</pre>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loading = true;
+    private Paperless.UI.Services.DocumentDto? doc;
+    private Paperless.UI.Services.DocumentTextDto? text;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        loading = true;
+        doc = await DocsApi.GetAsync(Id);
+        text = await DocsApi.GetTextAsync(Id);
+        loading = false;
+    }
+
+    private void Download()
+    {
+        Nav.NavigateTo($"/v1/documents/{Id}/file", forceLoad: true);
+    }
+}

@@ -1,0 +1,26 @@
+@page "/workspaces"
+@inherits WorkspacesBase
+
+<h3>Workspaces</h3>
+
+<div>
+    <input placeholder="New workspace name" @bind="NewName" />
+    <button @onclick="CreateWorkspace">Create</button>
+</div>
+
+@if (Workspaces is null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <ul>
+        @foreach (var w in Workspaces)
+        {
+            <li>
+                <a href="/workspaces/@w.id">@w.name</a>
+                <button @onclick="() => DeleteWorkspace(w.id)">Delete</button>
+            </li>
+        }
+    </ul>
+}

@@ -1,7 +1,4 @@
 @page "/search"
-@using System
-@using System.Collections.Generic
-@using System.Threading.Tasks
 
 <h3>Search Documents</h3>
 
@@ -14,7 +11,7 @@
 
 @if (IsLoading)
 {
-    <p>Searching…</p>
+    <p>Searching...</p>
 }
 else if (Results is not null)
 {
@@ -26,9 +23,37 @@ else if (Results is not null)
     else
     {
         <ul class="list-group">
-            @foreach (var id in Results)
+            @foreach (var r in Results)
             {
-                <li class="list-group-item">@id</li>
+                <li class="list-group-item">
+                    <DocumentListItem Title="@(!string.IsNullOrWhiteSpace(r.FileName) ? r.FileName : "(unknown)")"
+                                      UploadedAt="@r.UploadedAt"
+                                      ThumbnailDataUrl="@r.ThumbnailDataUrl">
+                        <details class="mt-2">
+                            <summary><strong>OCR</strong></summary>
+                            @if (!string.IsNullOrWhiteSpace(r.OcrPreview))
+                            {
+                                <pre class="mt-2" style="white-space: pre-wrap;">@r.OcrPreview</pre>
+                            }
+                            else
+                            {
+                                <div class="mt-2 text-muted">(not available yet)</div>
+                            }
+                        </details>
+
+                        <details class="mt-2">
+                            <summary><strong>Summary</strong></summary>
+                            @if (!string.IsNullOrWhiteSpace(r.SummaryPreview))
+                            {
+                                <pre class="mt-2" style="white-space: pre-wrap;">@r.SummaryPreview</pre>
+                            }
+                            else
+                            {
+                                <div class="mt-2 text-muted">(not available yet)</div>
+                            }
+                        </details>
+                    </DocumentListItem>
+                </li>
             }
         </ul>
     }

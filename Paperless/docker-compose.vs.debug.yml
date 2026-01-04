@@ -37,3 +37,7 @@ services:
       - 9092:8080
     environment:
       - ELASTICVUE_CLUSTERS='[{"name":"SWEN-cluster","uri":"http://localhost:9200"}]'
+
+  paperless.db:
+    ports:
+      - 5432:5432

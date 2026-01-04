@@ -8,6 +8,17 @@ namespace Paperless.UI.Services
     {
         Task<UploadResult> UploadAsync(IBrowserFile file, CancellationToken ct = default);
         Task<List<Guid>> SearchAsync(string q, int page = 1, int pageSize = 20);
+        Task<List<SearchResultItemDto>> SearchDetailedAsync(string q, int page = 1, int pageSize = 20);
+    }
+
+    public class SearchResultItemDto
+    {
+        public Guid id { get; set; }
+        public string? fileName { get; set; }
+        public DateTimeOffset? uploadedAt { get; set; }
+        public string? ocrPreview { get; set; }
+        public string? summaryPreview { get; set; }
+        public bool hasSummary { get; set; }
     }
 
     public class UploadResult

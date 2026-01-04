@@ -2,6 +2,57 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h3>Overview</h3>
 
-Welcome to your new app.
+@if (IsLoading)
+{
+    <p>@LoadingMessage</p>
+}
+else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @ErrorMessage
+    </div>
+}
+else if (Documents.Count == 0)
+{
+    <p class="text-muted">(no documents yet)</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var d in Documents)
+        {
+            <li class="list-group-item">
+                <DocumentListItem Title="@d.FileName"
+                                  UploadedAt="@d.UploadedAt"
+                                  ThumbnailDataUrl="@d.ThumbnailDataUrl"
+                                  DocumentId="@d.Id">
+                    <details class="mt-2">
+                        <summary><strong>OCR</strong></summary>
+                        @if (!string.IsNullOrWhiteSpace(d.Ocr))
+                        {
+                            <pre class="mt-2" style="white-space: pre-wrap;">@d.Ocr</pre>
+                        }
+                        else
+                        {
+                            <div class="mt-2 text-muted">(not available yet)</div>
+                        }
+                    </details>
+
+                    <details class="mt-2">
+                        <summary><strong>Summary</strong></summary>
+                        @if (!string.IsNullOrWhiteSpace(d.Summary))
+                        {
+                            <pre class="mt-2" style="white-space: pre-wrap;">@d.Summary</pre>
+                        }
+                        else
+                        {
+                            <div class="mt-2 text-muted">(not available yet)</div>
+                        }
+                    </details>
+                </DocumentListItem>
+            </li>
+        }
+    </ul>
+}

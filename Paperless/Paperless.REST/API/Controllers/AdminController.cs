@@ -1,7 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Paperless.REST.API.Models.BaseResponse;
-using Paperless.REST.API.Models.QueryModels;
-using Paperless.REST.API.Attributes;
+using Paperless.REST.BLL.Diagnostics;
+using Paperless.REST.BLL.Worker;
 
 namespace Paperless.REST.API.Controllers
 {
@@ -12,6 +13,21 @@ namespace Paperless.REST.API.Controllers
     public class AdminController : ControllerBase
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
+        private readonly IInfrastructureHealthChecker _dependencyChecker;
+        private readonly IDiagnosticsService _diagnosticsService;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AdminController"/> class with the specified infrastructure
+        /// health checker dependency.
+        /// </summary>
+        /// <param name="dependencyChecker">An object that provides health checking functionality for infrastructure dependencies. Cannot be <see langword="null"/>.</param>
+        /// <param name="diagnosticsService">An object that provides diagnostic functionality. Cannot be <see langword="null"/>.</param>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="dependencyChecker"/> or <paramref name="diagnosticsService"/> is <see langword="null"/>.</exception>
+        public AdminController(IInfrastructureHealthChecker dependencyChecker, IDiagnosticsService diagnosticsService)
+        {
+            _dependencyChecker = dependencyChecker ?? throw new ArgumentNullException(nameof(dependencyChecker));
+            _diagnosticsService = diagnosticsService ?? throw new ArgumentNullException(nameof(diagnosticsService));
+        }
 
         /// <summary>
         /// Liveness check
@@ -19,11 +35,11 @@ namespace Paperless.REST.API.Controllers
         /// <response code="200">OK</response>
         [HttpGet]
         [Route("/health")]
-        //[Authorize]
         [ProducesResponseType(statusCode: 200, type: typeof(BasicStatusResponse))]
         public virtual IActionResult Health()
         {
-            _logger.Trace($"Health requested from {Request.HttpContext.Connection.RemoteIpAddress}");
+            var ip = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
+            _logger.Trace($"Health requested from {ip}");
 
             return Ok(new BasicStatusResponse { Status = "OK" });
         }
@@ -35,70 +51,76 @@ namespace Paperless.REST.API.Controllers
         /// <response code="503">Service unavailable (not ready)</response>
         [HttpGet]
         [Route("/ready")]
-        //[Authorize]
         [ProducesResponseType(statusCode: 200, type: typeof(BasicStatusResponse))]
         [ProducesResponseType(statusCode: 503, type: typeof(BasicStatusResponse))]
-        public virtual IActionResult Ready()
+        public virtual async Task<IActionResult> Ready()
         {
-            _logger.Trace($"Readiness requested from {Request.HttpContext.Connection.RemoteIpAddress}");
-            //TODO: check DB connection, other dependencies, ...
-            var dbReady = true;
+            var rip = HttpContext?.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
+            _logger.Trace($"Readiness requested from {rip}");
 
-            if (dbReady)
-                return Ok(new BasicStatusResponse { Status = "READY" });
-            else
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new BasicStatusResponse { Status = "Not ready" });
+            // Aufruf an BLL: prüfe alle Abhängigkeiten (DB, RabbitMQ, Elasticsearch, MinIO, ...)
+            // Erwartete Rückgabe: (bool AllReady, string[] NotReady)
+            try
+            {
+                var (allOk, failedChecks) = await _dependencyChecker.CheckDependenciesAsync();
 
+                if (allOk)
+                {
+                    _logger.Trace("Readiness check: all dependencies OK.");
+                    return Ok(new BasicStatusResponse { Status = "READY" });
+                }
+                else
+                {
+                    var failedList = failedChecks?.ToList() ?? new List<string> { "unknown" };
+                    var message = $"Not ready: {string.Join(", ", failedList)}";
+                    _logger.Warn($"Readiness check failed: {message}");
+                    return StatusCode(StatusCodes.Status503ServiceUnavailable, new BasicStatusResponse { Status = message });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Bei Ausnahme: als nicht bereit melden und Fehler protokollieren.
+                _logger.Error(ex, "Exception while performing readiness checks.");
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new BasicStatusResponse { Status = "Not ready: internal error" });
+            }
         }
 
         /// <summary>
         /// Read-only diagnostics (no secrets)
         /// </summary>
         /// <response code="200">Returns a set of basic diagnostics data.</response>
-        /// <response code="403">Forbidden</response>
+        /// <response code="401">Unauthorized</response>
         [HttpGet]
         [Route("/v1/admin/diagnostics")]
-        //[Authorize]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType(statusCode: 200, type: typeof(DiagnosticsResponse))]
-        public virtual IActionResult Diagnostics()
+        public virtual async Task<IActionResult> Diagnostics()
         {
             _logger.Trace($"Diagnostics requested from {Request.HttpContext.Connection.RemoteIpAddress}");
-            //TODO: get diagnostics info (no secrets) from BLL (z.B. app version, db version, connected services versions, workers connected, queueBackLog, ...)
-            var diagnostics = new DiagnosticsResponse
+            try
             {
-                ApplicationVersion = "",
-                DatabaseVersion = "",
-                WorkersConnected = false,
-                QueueBacklog = 0
-            };
-            
-            return Ok(diagnostics);
+                var info = await _diagnosticsService.GetDiagnosticsAsync();
+                var diagnostics = new DiagnosticsResponse
+                {
+                    ApplicationVersion = info.ApplicationVersion ?? string.Empty,
+                    DatabaseVersion = info.DatabaseVersion ?? string.Empty,
+                    WorkersConnected = info.WorkersConnected,
+                    QueueBacklog = info.QueueBacklog
+                };
 
-        }
-
-        /// <summary>
-        /// Query audit logs (admin only)
-        /// </summary>
-        /// <example>?Level=info&Page=1&PageSize=20</example>
-        /// <param name="requestQuery">Query parameters for filtering and pagination</param>
-        /// <response code="200">OK</response>
-        /// <response code="400">Bad request (invalid parameters)</response>
-        /// <response code="403">Forbidden</response>
-        [HttpGet]
-        [Route("/v1/admin/audit-logs")]
-        //[Authorize]
-        [ValidateModelState]
-        [ProducesResponseType(statusCode: 200, type: typeof(AuditLogListResponse))]
-        public virtual IActionResult ListAuditLogs([FromQuery] AuditRequestQuery requestQuery)
-        {
-            _logger.Trace($"Audit logs requested from {Request.HttpContext.Connection.RemoteIpAddress}");
-            //TODO: fetch actual audit logs from BLL with paging, filtering by level, ...
-            var audit = new AuditLogListResponse
+                return Ok(diagnostics);
+            }
+            catch (Exception ex)
             {
-                AuditLogs = new List<string> { "Log1", "Log2" }
-            };
-
-            return Ok(audit);
+                _logger.Error(ex, "Failed to gather diagnostics");
+                return StatusCode(StatusCodes.Status500InternalServerError, new DiagnosticsResponse
+                {
+                    ApplicationVersion = string.Empty,
+                    DatabaseVersion = "error",
+                    WorkersConnected = false,
+                    QueueBacklog = 0
+                });
+            }
         }
     }
 }

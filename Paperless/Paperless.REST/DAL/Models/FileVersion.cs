@@ -24,7 +24,7 @@ namespace Paperless.REST.DAL.Models
         public Guid FileTypeId { get; set; }
         //[Required]
         //public string ContentSha256 { get; set; } = default!; // TODO: Idee für VirusTotal o.ä.
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public DateTimeOffset UploadedAt { get; set; }
         public Guid? UploadedByUserId { get; set; }
 

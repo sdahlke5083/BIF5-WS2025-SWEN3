@@ -163,6 +163,22 @@ namespace Paperless.Worker.OCR
                 {
                     documentIdSegment = segments[0];
                 }
+                // Thumbnail (erste Seite) speichern
+                try
+                {
+                    var thumbKey = $"{documentIdSegment}/thumbnail.png";
+                    var thumbBytes = await PdfToPngConverter.ConvertFirstPageAsync(fileBytes, dpi: 120);
+                    if (thumbBytes is not null && thumbBytes.Length > 0)
+                    {
+                        await _minio.SaveObjectAsync(thumbKey, thumbBytes, contentType: "image/png");
+                        _logger.Info("Thumbnail saved for document {0}: {1}", documentIdSegment, thumbKey);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Thumbnail darf die OCR nicht killen
+                    _logger.Warn(ex, "Failed to store thumbnail for document {0}", documentIdSegment);
+                }
 
                 // If it's a GUID, normalize; otherwise keep as-is but log warning
                 if (!Guid.TryParse(documentIdSegment, out var _))

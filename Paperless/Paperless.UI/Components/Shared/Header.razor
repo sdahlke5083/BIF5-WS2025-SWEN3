@@ -1,0 +1,22 @@
+@inject Paperless.UI.Services.IThemeService Theme
+@inject NavigationManager Nav
+
+<header class="site-header card">
+    <div class="brand">
+        <img src="/logo192.png" alt="logo" />
+        <div class="brand-info">
+            <div class="title">Paperless NG</div>
+            <div class="subtitle">Blazor UI</div>
+        </div>
+    </div>
+    <div class="header-actions">
+        <button class="secondary" @onclick="ToggleTheme">Toggle theme</button>
+    </div>
+</header>
+
+@code {
+    private async Task ToggleTheme()
+    {
+        await Theme.ToggleThemeAsync();
+    }
+}

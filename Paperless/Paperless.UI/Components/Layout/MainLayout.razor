@@ -1,13 +1,38 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
+@inject Paperless.UI.Services.IThemeService ThemeService
+@implements IDisposable
+
+@code {
+    private string themeClass = "dark";
+
+    protected override async Task OnInitializedAsync()
+    {
+        themeClass = await ThemeService.GetThemeAsync();
+        ThemeService.ThemeChanged += OnThemeChanged;
+        await base.OnInitializedAsync();
+    }
+
+    private void OnThemeChanged(string t)
+    {
+        themeClass = t;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        try { ThemeService.ThemeChanged -= OnThemeChanged; } catch { }
+    }
+}
+
+<div class="page @themeClass">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">Learn More</a>
         </div>
 
         <article class="content px-4">
