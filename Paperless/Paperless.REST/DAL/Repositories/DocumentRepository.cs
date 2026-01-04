@@ -168,5 +168,26 @@ namespace Paperless.REST.DAL.Repositories
             _context.Documents.Remove(doc);
             await _context.SaveChangesAsync(ct).ConfigureAwait(false);
         }
+
+        /// <summary>
+        /// Asynchronously retrieves the password hash associated with the specified shared document.
+        /// </summary>
+        /// <remarks>This method does not track changes to the retrieved entity. If no password hash is
+        /// set for the specified document, the method returns <see langword="null"/>.</remarks>
+        /// <param name="documentId">The unique identifier of the shared document whose password hash is to be retrieved.</param>
+        /// <returns>A <see cref="string"/> containing the password hash for the specified document if it exists; otherwise, <see
+        /// langword="null"/>.</returns>
+        public async Task<string?> GetSharePasswordAsync(Guid documentId)
+        {
+            // Die AsNoTracking()-Methode darf nur auf IQueryable<Share> angewendet werden, nicht auf IQueryable<string?>.
+            // Daher zuerst die Entität abfragen, dann das Feld extrahieren.
+            var passwordHash = await _context.Shares
+                .Where(s => s.Id == documentId)
+                .AsNoTracking()
+                .Select(s => s.PasswordHash)
+                .FirstOrDefaultAsync();
+
+            return passwordHash;
+        }
     }
 }

@@ -1,11 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Paperless.REST.API.Models;
 using Paperless.REST.API.Models.BaseResponse;
+using Paperless.REST.DAL.DbContexts;
+using Paperless.REST.DAL.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
-using Paperless.REST.DAL.DbContexts;
-using Paperless.REST.API.Models;
-using Paperless.REST.DAL.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace Paperless.REST.API.Controllers
 {
@@ -20,6 +21,15 @@ namespace Paperless.REST.API.Controllers
         private readonly DAL.Repositories.IDocumentRepository _repo;
         private readonly BLL.Storage.IFileStorageService _fileStorage;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DocumentsController"/> class with the specified database
+        /// context, document repository, and file storage service.
+        /// </summary>
+        /// <remarks>Use this constructor to create a <see cref="DocumentsController"/> with custom data
+        /// access and storage dependencies, typically for dependency injection scenarios.</remarks>
+        /// <param name="db">The database context used for data access operations.</param>
+        /// <param name="repo">The document repository that provides access to document data.</param>
+        /// <param name="fileStorage">The file storage service used for managing document files.</param>
         public DocumentsController(PostgressDbContext db, DAL.Repositories.IDocumentRepository repo, BLL.Storage.IFileStorageService fileStorage)
         {
             _db = db;
@@ -37,7 +47,7 @@ namespace Paperless.REST.API.Controllers
         /// <response code="404">Not found</response>
         [HttpDelete]
         [Route("/v1/documents/{id}")]
-        //[Authorize]
+        [Authorize]
         [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
@@ -72,14 +82,14 @@ namespace Paperless.REST.API.Controllers
         /// <response code="404">Not found</response>
         [HttpGet]
         [Route("/v1/documents/{id}/file")]
-        //[Authorize(Policy = "shareToken")]
-        //[Authorize]
+        [Authorize(Policy = "shareToken")]
+        [Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(Stream))]
         //[ProducesResponseType(statusCode: 206, type: typeof(Stream))]
         [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
-        public virtual IActionResult DownloadFile([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string xSharePassword)
+        public virtual IActionResult DownloadFile([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string? xSharePassword)
         {
             // find latest file version
             var doc = _db.Documents.Include(d => d.FileVersions).FirstOrDefault(d => d.Id == id);
@@ -98,7 +108,7 @@ namespace Paperless.REST.API.Controllers
                 var stream = _fileStorage.OpenReadStreamAsync(objectName).GetAwaiter().GetResult();
                 return File(stream, file.FileType?.MimeType ?? "application/octet-stream", file.OriginalFileName, enableRangeProcessing: true);
             }
-            catch (Paperless.REST.BLL.Exceptions.FileStorageException ex)
+            catch (BLL.Exceptions.FileStorageException ex)
             {
                 _logger.Warn(ex, "File not found in storage: {Object}", objectName);
                 return NotFound();

@@ -1,21 +1,27 @@
-using NUnit.Framework;
-using Paperless.REST.API.Controllers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Moq;
+using Paperless.REST.API.Controllers;
+using Paperless.REST.BLL.Worker;
 
 namespace Paperless.REST.Test.Controllers
 {
     public class AdminControllerTests
     {
         private AdminController _controller = null!;
+        private IInfrastructureHealthChecker _mockDependencyChecker = null!;
 
         [SetUp]
         public void Setup()
         {
-            _controller = new AdminController();
+            _mockDependencyChecker = Mock.Of<IInfrastructureHealthChecker>();
+            Mock.Get(_mockDependencyChecker).Setup(x => x.CheckDependenciesAsync())
+                .ReturnsAsync((true, Array.Empty<string>()));
+            _controller = new AdminController(_mockDependencyChecker);
             // ensure controller has HttpContext to avoid NullReference when accessing Request
-            _controller.ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+            _controller.ControllerContext = new ControllerContext
             {
-                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+                HttpContext = new DefaultHttpContext()
             };
         }
 
@@ -28,9 +34,10 @@ namespace Paperless.REST.Test.Controllers
         }
 
         [Test]
-        public void Ready_Returns_Ok()
+        public async Task Ready_Returns_Ok()
         {
-            var res = _controller.Ready() as ObjectResult;
+            var actionResult = await _controller.Ready();
+            var res = actionResult as ObjectResult;
             Assert.That(res, Is.Not.Null);
             Assert.That(res!.StatusCode == 200 || res.StatusCode == 503, Is.True);
         }

@@ -25,6 +25,22 @@ public class MyElasticSearchClient
         _ = EnsureIndexAsync();
     }
 
+    /// <summary>
+    /// Test connectivity to the Elasticsearch cluster by issuing a lightweight ping.
+    /// </summary>
+    public async Task<bool> TestConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var resp = await _esClient.PingAsync(cancellationToken).ConfigureAwait(false);
+            return resp.IsValidResponse;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async Task EnsureIndexAsync()
     {
         try

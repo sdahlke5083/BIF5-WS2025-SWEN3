@@ -1,8 +1,11 @@
-using Elastic.Clients.Elasticsearch;
+using Elastic.Clients.Elasticsearch.Ingest;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Paperless.REST.API.Middleware;
+using Paperless.REST.BLL.Diagnostics;
 using Paperless.REST.BLL.Models;
 using Paperless.REST.BLL.Search;
 using Paperless.REST.BLL.Storage;
@@ -42,7 +45,8 @@ services.Configure<MinioStorageOptions>(
         .GetSection("Minio"));
 
 services.AddSingleton<IFileStorageService, MinioFileStorageService>();
-
+services.AddScoped<IInfrastructureHealthChecker, InfrastructureHealthChecker>();
+services.AddScoped<IDiagnosticsService, DiagnosticsService>();
 
 // Add services to the container.
 services.AddControllers().AddJsonOptions(x =>
@@ -56,6 +60,10 @@ services.AddHttpClient();
 // Register MyElasticSearchClient as singleton using the official Elasticsearch .NET client
 services.AddSingleton<MyElasticSearchClient>();
 
+// Register HttpContextAccessor and our authorization handler
+services.AddHttpContextAccessor();
+// Note: handler implemented below in this file; register as Scoped to allow repository usage per-request
+services.AddScoped<IAuthorizationHandler, ShareTokenHandler>();
 
 services.AddDbContext<PostgressDbContext>(o =>
 {
@@ -117,9 +125,26 @@ services.AddSwaggerGen(options =>
     options.AddServer(new OpenApiServer
     {
         Description = "Local development (HTTPS/TLS)",
-        Url = "https://localhost:8081/",
+        Url = "http://localhost:8081/",
     });
-    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory,$"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, $"{Assembly.GetExecutingAssembly().GetName().Name}.xml"));
+    var jwtSecuritySchema = new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"{token}\"",
+        Name = "Authorization",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = JwtBearerDefaults.AuthenticationScheme,
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = JwtBearerDefaults.AuthenticationScheme
+        }
+    };
+    options.AddSecurityDefinition(jwtSecuritySchema.Reference.Id,jwtSecuritySchema);
+    // add custom filter to only enable auth for enpoints with [Auth] tag
+    options.OperationFilter<AuthorizeCheckOperationFilter>(jwtSecuritySchema);
 });
 
 
@@ -149,7 +174,14 @@ services.AddAuthentication(options =>
     };
 });
 
-services.AddAuthorization();
+services.AddAuthorization(options =>
+{
+    options.AddPolicy("shareToken", policy =>
+    {
+        // Policy erfüllt wenn entweder angemeldeter Benutzer mit Role-Claim ODER gültiges Share-Passwort für das Dokument
+        policy.AddRequirements(new ShareTokenRequirement());
+    });
+});
 
 
 

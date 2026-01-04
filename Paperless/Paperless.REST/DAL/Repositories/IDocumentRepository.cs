@@ -12,6 +12,7 @@ namespace Paperless.REST.DAL.Repositories
         Task DeleteAsync(Guid id, CancellationToken ct = default);
         Task RestoreAsync(Guid id, CancellationToken ct = default);
         Task PermanentlyDeleteAsync(Guid id, CancellationToken ct = default);
+        Task<string?> GetSharePasswordAsync(Guid documentId);
 
         // TODO: Idea: Filter management methods - Apply some filters to all queries in this repository
         // somehow pass the filter or have a public property that can be set from outside and the functions activate it
