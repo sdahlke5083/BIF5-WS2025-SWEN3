@@ -1,7 +1,4 @@
 @page "/search"
-@using System
-@using System.Collections.Generic
-@using System.Threading.Tasks
 
 <h3>Search Documents</h3>
 
@@ -14,7 +11,7 @@
 
 @if (IsLoading)
 {
-    <p>Searching…</p>
+    <p>Searching...</p>
 }
 else if (Results is not null)
 {
@@ -29,38 +26,33 @@ else if (Results is not null)
             @foreach (var r in Results)
             {
                 <li class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <div class="fw-bold">@(!string.IsNullOrWhiteSpace(r.fileName) ? r.fileName : "(unknown)")</div>
-                            <div class="text-muted" style="font-size: 0.9em;">
-                                Uploaded: @(r.uploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
-                            </div>
+                    <DocumentListItem Title="@(!string.IsNullOrWhiteSpace(r.FileName) ? r.FileName : "(unknown)")"
+                                      UploadedAt="@r.UploadedAt"
+                                      ThumbnailDataUrl="@r.ThumbnailDataUrl">
+                        <details class="mt-2">
+                            <summary><strong>OCR</strong></summary>
+                            @if (!string.IsNullOrWhiteSpace(r.OcrPreview))
+                            {
+                                <pre class="mt-2" style="white-space: pre-wrap;">@r.OcrPreview</pre>
+                            }
+                            else
+                            {
+                                <div class="mt-2 text-muted">(not available yet)</div>
+                            }
+                        </details>
 
-                            <details class="mt-2">
-                                <summary><strong>OCR</strong></summary>
-                                @if (!string.IsNullOrWhiteSpace(r.ocrPreview))
-                                {
-                                    <div class="mt-2">@r.ocrPreview</div>
-                                }
-                                else
-                                {
-                                    <div class="mt-2 text-muted">(not available yet)</div>
-                                }
-                            </details>
-
-                            <details class="mt-2">
-                                <summary><strong>Summary</strong></summary>
-                                @if (!string.IsNullOrWhiteSpace(r.summaryPreview))
-                                {
-                                    <div class="mt-2">@r.summaryPreview</div>
-                                }
-                                else
-                                {
-                                    <div class="mt-2 text-muted">(not available yet)</div>
-                                }
-                            </details>
-                        </div>
-                    </div>
+                        <details class="mt-2">
+                            <summary><strong>Summary</strong></summary>
+                            @if (!string.IsNullOrWhiteSpace(r.SummaryPreview))
+                            {
+                                <pre class="mt-2" style="white-space: pre-wrap;">@r.SummaryPreview</pre>
+                            }
+                            else
+                            {
+                                <div class="mt-2 text-muted">(not available yet)</div>
+                            }
+                        </details>
+                    </DocumentListItem>
                 </li>
             }
         </ul>

@@ -1,0 +1,42 @@
+﻿@using System
+@using Microsoft.AspNetCore.Components
+
+<div class="d-flex gap-3 align-items-start">
+    <!-- LEFT: thumbnail -->
+    <div style="width: 140px; flex: 0 0 140px;">
+        @if (!string.IsNullOrWhiteSpace(ThumbnailDataUrl))
+        {
+            <img src="@ThumbnailDataUrl"
+                 class="img-fluid rounded border"
+                 style="max-height: 180px; object-fit: cover;" />
+        }
+        else
+        {
+            <div class="border rounded d-flex align-items-center justify-content-center text-muted"
+                 style="height: 180px; font-size: 0.85em;">
+                (no preview)
+            </div>
+        }
+    </div>
+
+    <!-- RIGHT: -->
+    <div class="flex-grow-1">
+        <div class="fw-bold">
+            @Title
+        </div>
+        <div class="text-muted" style="font-size: 0.9em;">
+            Uploaded: @(UploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
+        </div>
+
+        @ChildContent
+    </div>
+</div>
+
+@code
+{
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public DateTimeOffset? UploadedAt { get; set; }
+    [Parameter] public string? ThumbnailDataUrl { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

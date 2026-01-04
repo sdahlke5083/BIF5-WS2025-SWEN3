@@ -6,7 +6,7 @@
 
 @if (IsLoading)
 {
-    <p>Loading...</p>
+    <p>@LoadingMessage</p>
 }
 else if (!string.IsNullOrWhiteSpace(ErrorMessage))
 {
@@ -24,58 +24,31 @@ else
         @foreach (var d in Documents)
         {
             <li class="list-group-item">
-                <div class="d-flex gap-3 align-items-start">
-                    <!-- LEFT: thumbnail -->
-                    <div style="width: 140px; flex: 0 0 140px;">
-                        @if (!string.IsNullOrWhiteSpace(d.ThumbnailDataUrl))
+                <DocumentListItem Title="@d.FileName" UploadedAt="@d.UploadedAt" ThumbnailDataUrl="@d.ThumbnailDataUrl">
+                    <details class="mt-2">
+                        <summary><strong>OCR</strong></summary>
+                        @if (!string.IsNullOrWhiteSpace(d.Ocr))
                         {
-                            <img src="@d.ThumbnailDataUrl"
-                                 class="img-fluid rounded border"
-                                 style="max-height: 180px; object-fit: cover;" />
+                            <pre class="mt-2" style="white-space: pre-wrap;">@d.Ocr</pre>
                         }
                         else
                         {
-                            <div class="border rounded d-flex align-items-center justify-content-center text-muted"
-                                 style="height: 180px; font-size: 0.85em;">
-                                (no preview)
-                            </div>
+                            <div class="mt-2 text-muted">(not available yet)</div>
                         }
-                    </div>
+                    </details>
 
-                    <!-- RIGHT: -->
-                    <div class="flex-grow-1">
-                        <div class="fw-bold">
-                            @d.FileName
-                        </div>
-                        <div class="text-muted" style="font-size: 0.9em;">
-                            Uploaded: @(d.UploadedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "unknown")
-                        </div>
-
-                        <details class="mt-2">
-                            <summary><strong>OCR</strong></summary>
-                            @if (!string.IsNullOrWhiteSpace(d.Ocr))
-                            {
-                                <pre class="mt-2" style="white-space: pre-wrap;">@d.Ocr</pre>
-                            }
-                            else
-                            {
-                                <div class="mt-2 text-muted">(not available yet)</div>
-                            }
-                        </details>
-
-                        <details class="mt-2">
-                            <summary><strong>Summary</strong></summary>
-                            @if (!string.IsNullOrWhiteSpace(d.Summary))
-                            {
-                                <pre class="mt-2" style="white-space: pre-wrap;">@d.Summary</pre>
-                            }
-                            else
-                            {
-                                <div class="mt-2 text-muted">(not available yet)</div>
-                            }
-                        </details>
-                    </div>
-                </div>
+                    <details class="mt-2">
+                        <summary><strong>Summary</strong></summary>
+                        @if (!string.IsNullOrWhiteSpace(d.Summary))
+                        {
+                            <pre class="mt-2" style="white-space: pre-wrap;">@d.Summary</pre>
+                        }
+                        else
+                        {
+                            <div class="mt-2 text-muted">(not available yet)</div>
+                        }
+                    </details>
+                </DocumentListItem>
             </li>
         }
     </ul>
