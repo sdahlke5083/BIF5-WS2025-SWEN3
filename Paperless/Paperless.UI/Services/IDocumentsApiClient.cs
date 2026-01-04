@@ -5,6 +5,7 @@ public interface IDocumentsApiClient
     Task<DocumentDto?> GetAsync(Guid id);
     Task<DocumentTextDto?> GetTextAsync(Guid id);
     Task<DocumentListPageDto> ListAsync(string? q = "", int page = 1, int pageSize = 50);
+    Task<byte[]?> GetThumbnailPngAsync(Guid id);
 }
 
 public class DocumentDto

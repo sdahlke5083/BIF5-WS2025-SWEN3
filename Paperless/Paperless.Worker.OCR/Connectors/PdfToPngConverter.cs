@@ -52,4 +52,50 @@ public static class PdfToPngConverter
             try { Directory.Delete(workDir, true); } catch { /* ignore */ }
         }
     }
+
+    public static async Task<byte[]?> ConvertFirstPageAsync(byte[] pdfBytes, int dpi = 120, CancellationToken ct = default)
+    {
+        if (pdfBytes is null || pdfBytes.Length == 0)
+            return null;
+
+        var workDir = Path.Combine(Path.GetTempPath(), "paperless-ocr", "thumb-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+
+        var pdfPath = Path.Combine(workDir, "input.pdf");
+        await File.WriteAllBytesAsync(pdfPath, pdfBytes, ct);
+
+        var outPrefix = Path.Combine(workDir, "thumb");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = "pdftoppm",
+            // -f/-l => nur Seite 1, -singlefile => erzeugt "thumb.png" (keine Ziffern)
+            Arguments = $"-f 1 -l 1 -rx {dpi} -ry {dpi} -png -singlefile \"{pdfPath}\" \"{outPrefix}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+
+        try
+        {
+            using var p = Process.Start(psi) ?? throw new InvalidOperationException("Failed to start pdftoppm.");
+            var stderrTask = p.StandardError.ReadToEndAsync();
+            await p.WaitForExitAsync(ct);
+
+            var stderr = await stderrTask;
+            if (p.ExitCode != 0)
+                throw new InvalidOperationException($"pdftoppm failed (ExitCode={p.ExitCode}). {stderr}");
+
+            var thumbPath = Path.Combine(workDir, "thumb.png");
+            if (!File.Exists(thumbPath))
+                return null;
+
+            return await File.ReadAllBytesAsync(thumbPath, ct);
+        }
+        finally
+        {
+            try { Directory.Delete(workDir, true); } catch { /* ignore */ }
+        }
+    }
+
 }

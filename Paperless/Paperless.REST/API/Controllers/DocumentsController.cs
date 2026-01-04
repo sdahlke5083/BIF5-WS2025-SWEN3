@@ -111,6 +111,33 @@ namespace Paperless.REST.API.Controllers
         }
 
         /// <summary>
+        /// Get a small PNG preview (thumbnail) of the first PDF page.
+        /// The OCR worker stores it in MinIO as "{documentId}/thumbnail.png".
+        /// </summary>
+        [HttpGet]
+        [Route("/v1/documents/{id}/thumbnail")]
+        public virtual async Task<IActionResult> GetThumbnail([FromRoute(Name = "id")][Required] Guid id)
+        {
+            var objectName = $"{id:D}/thumbnail.png";
+
+            try
+            {
+                var stream = await _fileStorage.OpenReadStreamAsync(objectName);
+                return File(stream, "image/png");
+            }
+            catch (Paperless.REST.BLL.Exceptions.FileStorageException ex)
+            {
+                _logger.Warn(ex, "Thumbnail not found in storage: {Object}", objectName);
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error downloading thumbnail {Object}", objectName);
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
+        }
+
+        /// <summary>
         /// Get a document by id
         /// </summary>
         /// <param name="id"></param>
