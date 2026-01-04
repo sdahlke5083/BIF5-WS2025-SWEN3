@@ -127,40 +127,29 @@ namespace Paperless.REST.BLL.Storage
             if (string.IsNullOrWhiteSpace(objectName))
                 throw new ArgumentException("Object name must not be empty.", nameof(objectName));
 
-            var getObjectArgs = new GetObjectArgs()
-                .WithBucket(_options.BucketName)
-                .WithObject(objectName);
-
             var memory = new MemoryStream();
 
             try
             {
-                // Use dynamic invocation to handle different MinIO client overloads across versions.
-                dynamic dyn = _client;
-                object taskObj;
+                var args = new GetObjectArgs()
+                    .WithBucket(_options.BucketName)
+                    .WithObject(objectName)
+                    .WithCallbackStream(async (stream, ct) =>
+                    {
+                        await stream.CopyToAsync(memory, ct).ConfigureAwait(false);
+                    });
 
-                try
-                {
-                    // try overload with callback and cancellation token
-                    taskObj = dyn.GetObjectAsync(getObjectArgs, (Action<Stream>)(s => s.CopyTo(memory)), cancellationToken);
-                }
-                catch (Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
-                {
-                    // fallback to overload without cancellation token
-                    taskObj = dyn.GetObjectAsync(getObjectArgs, (Action<Stream>)(s => s.CopyTo(memory)));
-                }
-
-                if (taskObj is Task t)
-                    await t.ConfigureAwait(false);
-                else
-                    throw new FileStorageException("Unexpected result from MinIO client GetObjectAsync.");
+                await _client.GetObjectAsync(args, cancellationToken).ConfigureAwait(false);
 
                 memory.Position = 0;
                 return memory;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to retrieve object {ObjectName} from bucket {Bucket}.", objectName, _options.BucketName);
+                _logger.LogError(ex,
+                    "Failed to retrieve object {ObjectName} from bucket {Bucket}.",
+                    objectName, _options.BucketName);
+
                 throw new FileStorageException($"Failed to retrieve file '{objectName}' from object storage.", ex);
             }
         }

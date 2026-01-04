@@ -121,6 +121,33 @@ namespace Paperless.REST.API.Controllers
         }
 
         /// <summary>
+        /// Get a small PNG preview (thumbnail) of the first PDF page.
+        /// The OCR worker stores it in MinIO as "{documentId}/thumbnail.png".
+        /// </summary>
+        [HttpGet]
+        [Route("/v1/documents/{id}/thumbnail")]
+        public virtual async Task<IActionResult> GetThumbnail([FromRoute(Name = "id")][Required] Guid id)
+        {
+            var objectName = $"{id:D}/thumbnail.png";
+
+            try
+            {
+                var stream = await _fileStorage.OpenReadStreamAsync(objectName);
+                return File(stream, "image/png");
+            }
+            catch (Paperless.REST.BLL.Exceptions.FileStorageException ex)
+            {
+                _logger.Warn(ex, "Thumbnail not found in storage: {Object}", objectName);
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "Error downloading thumbnail {Object}", objectName);
+                return StatusCode(StatusCodes.Status500InternalServerError);
+            }
+        }
+
+        /// <summary>
         /// Get a document by id
         /// </summary>
         /// <param name="id"></param>
@@ -221,7 +248,22 @@ namespace Paperless.REST.API.Controllers
         //[Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
         [ProducesResponseType(400)]
-        public virtual IActionResult ListDocuments([FromQuery (Name = "q")]string q, [FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize, [FromQuery (Name = "sort")]string sort, [FromQuery (Name = "fileType")]string fileType, [FromQuery (Name = "sizeMin")]long? sizeMin, [FromQuery (Name = "sizeMax")]long? sizeMax, [FromQuery (Name = "uploadDateFrom")]DateTime? uploadDateFrom, [FromQuery (Name = "uploadDateTo")]DateTime? uploadDateTo, [FromQuery (Name = "hasSummary")]bool? hasSummary, [FromQuery (Name = "hasError")]bool? hasError, [FromQuery (Name = "uploaderId")]Guid? uploaderId, [FromQuery (Name = "workspaceId")]Guid? workspaceId, [FromQuery (Name = "approvalStatus")]string approvalStatus, [FromQuery (Name = "shared")]bool? shared)
+        public virtual IActionResult ListDocuments(
+            [FromQuery (Name = "q")]string? q, 
+            [FromQuery (Name = "page")]int? page, 
+            [FromQuery (Name = "pageSize")]int? pageSize, 
+            [FromQuery (Name = "sort")]string? sort, 
+            [FromQuery (Name = "fileType")]string? fileType, 
+            [FromQuery (Name = "sizeMin")]long? sizeMin, 
+            [FromQuery (Name = "sizeMax")]long? sizeMax, 
+            [FromQuery (Name = "uploadDateFrom")]DateTime? uploadDateFrom, 
+            [FromQuery (Name = "uploadDateTo")]DateTime? uploadDateTo, 
+            [FromQuery (Name = "hasSummary")]bool? hasSummary, 
+            [FromQuery (Name = "hasError")]bool? hasError, 
+            [FromQuery (Name = "uploaderId")]Guid? uploaderId, 
+            [FromQuery (Name = "workspaceId")]Guid? workspaceId, 
+            [FromQuery (Name = "approvalStatus")]string? approvalStatus, 
+            [FromQuery (Name = "shared")]bool? shared)
         {
             var p = page.GetValueOrDefault(1);
             var ps = Math.Clamp(pageSize.GetValueOrDefault(20), 1, 100);
@@ -241,10 +283,27 @@ namespace Paperless.REST.API.Controllers
             var items = all.Skip((p - 1) * ps).Take(ps).Select(d => new
             {
                 id = d.Id,
-                title = d.MetadataVersions.OrderByDescending(m => m.Version).FirstOrDefault()!.Title,
-                uploadedAt = d.FileVersions.OrderByDescending(f => f.UploadedAt).FirstOrDefault()!.UploadedAt,
-                size = d.FileVersions.OrderByDescending(f => f.Version).FirstOrDefault()!.SizeBytes
+                fileName = d.FileVersions
+                    .OrderByDescending(f => f.Version)
+                    .Select(f => f.OriginalFileName)
+                    .FirstOrDefault(),
+
+                title = d.MetadataVersions
+                    .OrderByDescending(m => m.Version)
+                    .Select(m => m.Title)
+                    .FirstOrDefault(),
+
+                uploadedAt = d.FileVersions
+                    .OrderByDescending(f => f.Version)
+                    .Select(f => (DateTimeOffset?)f.UploadedAt)
+                    .FirstOrDefault(),
+
+                size = d.FileVersions
+                    .OrderByDescending(f => f.Version)
+                    .Select(f => (long?)f.SizeBytes)
+                    .FirstOrDefault()
             }).ToList();
+
 
             return Ok(new { page = p, pageSize = ps, total, items });
         }

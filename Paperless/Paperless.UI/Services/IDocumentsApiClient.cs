@@ -4,6 +4,8 @@ public interface IDocumentsApiClient
 {
     Task<DocumentDto?> GetAsync(Guid id);
     Task<DocumentTextDto?> GetTextAsync(Guid id);
+    Task<DocumentListPageDto> ListAsync(string? q = "", int page = 1, int pageSize = 50);
+    Task<byte[]?> GetThumbnailPngAsync(Guid id);
 }
 
 public class DocumentDto
@@ -33,4 +35,21 @@ public class DocumentTextDto
     public string? ocr { get; set; }
     public string? summary { get; set; }
     public DateTime timestamp { get; set; }
+}
+
+public class DocumentListPageDto
+{
+    public int page { get; set; }
+    public int pageSize { get; set; }
+    public int total { get; set; }
+    public List<DocumentListItemDto> items { get; set; } = new();
+}
+
+public class DocumentListItemDto
+{
+    public Guid id { get; set; }
+    public string? title { get; set; }
+    public string? fileName { get; set; }
+    public DateTimeOffset? uploadedAt { get; set; }
+    public long? size { get; set; }
 }

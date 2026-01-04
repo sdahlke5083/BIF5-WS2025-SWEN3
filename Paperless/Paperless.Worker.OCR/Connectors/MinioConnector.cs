@@ -68,5 +68,30 @@ namespace Paperless.Worker.OCR.Connectors
                 throw new InvalidOperationException($"Fehler beim Abrufen des Objekts '{objectKey}': {mex.Message}", mex);
             }
         }
+
+        public async Task SaveObjectAsync(string objectKey, byte[] content, string contentType = "application/octet-stream")
+        {
+            if (content is null || content.Length == 0)
+                throw new ArgumentException("content must not be empty.", nameof(content));
+
+            // Ensure bucket exists
+            var bucketExists = await _client.BucketExistsAsync(new BucketExistsArgs().WithBucket(_options.BucketName));
+            if (!bucketExists)
+            {
+                await _client.MakeBucketAsync(new MakeBucketArgs().WithBucket(_options.BucketName));
+            }
+
+            using var ms = new MemoryStream(content);
+
+            var putArgs = new PutObjectArgs()
+                .WithBucket(_options.BucketName)
+                .WithObject(objectKey)
+                .WithStreamData(ms)
+                .WithObjectSize(ms.Length)
+                .WithContentType(contentType);
+
+            await _client.PutObjectAsync(putArgs);
+        }
+
     }
 }
