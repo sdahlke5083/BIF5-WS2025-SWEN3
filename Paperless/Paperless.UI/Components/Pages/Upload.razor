@@ -6,7 +6,7 @@
 
 <h3>Upload a file</h3>
 
-<InputFile OnChange="OnFileSelected" />
+<InputFile OnChange="OnFileSelected" accept="application/pdf,.pdf"/>
 <button class="btn btn-primary mt-2" @onclick="UploadAsync" disabled="@(selectedFile is null || isUploading)">Upload</button>
 
 @if (isUploading)
@@ -25,13 +25,38 @@
 
     private void OnFileSelected(InputFileChangeEventArgs e)
     {
-        selectedFile = e.File;
+        var file = e.File;
         status = null;
+
+        // Client-side guard
+        if (!IsPdf(file))
+        {
+            selectedFile = null;
+            status = "Only PDF files are allowed.";
+            return;
+        }
+
+        selectedFile = file;
+    }
+
+    private static bool IsPdf(IBrowserFile file)
+    {
+        if (file is null) return false;
+
+        if (!file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(file.ContentType))
+            return true;
+
+        return file.ContentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+               || file.ContentType.Equals("application/x-pdf", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task UploadAsync()
     {
-        if (selectedFile is null) return;
+        if (selectedFile is null) 
+            return;
         try
         {
             isUploading = true;
