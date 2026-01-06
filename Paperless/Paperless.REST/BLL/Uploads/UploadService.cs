@@ -21,6 +21,7 @@ namespace Paperless.REST.BLL.Uploads
         private static readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
         private readonly IDocumentRepository _documentRepository;
+        private readonly IConfiguration _config;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="UploadService"/> class.
@@ -29,9 +30,17 @@ namespace Paperless.REST.BLL.Uploads
         /// to handle document-related operations. Ensure that the provided repository is properly configured before
         /// using this service.</remarks>
         /// <param name="documentRepository">The repository used to manage document storage and retrieval operations.</param>
-        public UploadService(IDocumentRepository documentRepository)
+        /// <param name="config">The application configuration settings used for authentication operations.</param>
+        public UploadService(IDocumentRepository documentRepository, IConfiguration config)
         {
-            _documentRepository = documentRepository;
+            _documentRepository = documentRepository ?? throw new ArgumentNullException(nameof(documentRepository));
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+
+            var configuredPath = _config.GetValue<string>("Paperless:Path")?.Trim();
+            if (string.IsNullOrWhiteSpace(configuredPath))
+                throw new ArgumentException("Configuration value 'Paperless:Path' is missing or empty. Please set 'Paperless:Path' in configuration.", nameof(config));
+            
+            Path = configuredPath;
         }
 
         /// <summary>
@@ -62,6 +71,8 @@ namespace Paperless.REST.BLL.Uploads
             {
                 throw new ValidationException("No files were provided.", new[] { "No files were provided. Send at least one file via form field 'files'." });
             }
+            
+            _logger.Debug("Uploading of {0} files.", files.Count);
 
             // must be a plosible file
             foreach (var f in files)
@@ -95,6 +106,7 @@ namespace Paperless.REST.BLL.Uploads
 
             if(result.Errors.Count is not 0)
             {
+                _logger.Debug("Upload failed because of: {0}", result.Errors);
                 throw new ValidationException("Errors occurred during Validation!", result.Errors);
             }
 

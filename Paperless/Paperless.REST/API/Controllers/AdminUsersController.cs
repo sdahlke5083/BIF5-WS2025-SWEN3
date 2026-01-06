@@ -17,7 +17,7 @@ namespace Paperless.REST.API.Controllers
     [Authorize(Roles = "Admin")]
     public class AdminUsersController : ControllerBase
     {
-        private readonly PostgressDbContext _db;
+        private readonly IUserService _userService;
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
         /// <summary>
@@ -26,10 +26,10 @@ namespace Paperless.REST.API.Controllers
         /// </summary>
         /// <remarks>This constructor enables dependency injection of the database context, allowing the
         /// controller to interact with the underlying data store.</remarks>
-        /// <param name="db">The <see cref="PostgressDbContext"/> to be used for data access operations.</param>
-        public AdminUsersController(PostgressDbContext db)
+        /// <param name="userService">The user service used to perform user management operations. Cannot be null.</param>
+        public AdminUsersController(IUserService userService)
         {
-            _db = db;
+            _userService = userService;
         }
 
         /// <summary>
@@ -41,7 +41,7 @@ namespace Paperless.REST.API.Controllers
         [Route("/v1/admin/users")]
         public IActionResult ListUsers()
         {
-            var users = _db.Users.AsNoTracking().Select(u => new { id = u.Id, username = u.Username, displayName = u.DisplayName }).ToList();
+            var users = _userService.ListUsers().Select(u => new { id = u.Id, username = u.Username, displayName = u.DisplayName }).ToList();
             _logger.Debug("Admin user {admin} listed all users. Total users: {count}", User.Identity?.Name, users.Count);
             return Ok(users);
         }
@@ -61,23 +61,16 @@ namespace Paperless.REST.API.Controllers
         [Route("/v1/admin/users/{id}")]
         public IActionResult UpdateUser([FromRoute] Guid id, [FromBody] UserProfileUpdateRequest req)
         {
-            var u = _db.Users.FirstOrDefault(x => x.Id == id);
-            if (u is null) return NotFound();
-
-            if (!string.IsNullOrWhiteSpace(req.DisplayName)) u.DisplayName = req.DisplayName!;
-            if (!string.IsNullOrWhiteSpace(req.Password))
+            var result = _userService.UpdateUserAsAdmin(id, req);
+            if (!result.Success)
             {
-                var errors = PasswordValidator.Validate(req.Password!);
-                if (errors.Count > 0)
-                    return BadRequest(new { errors });
-
-                u.Password = PasswordHasher.Hash(req.Password!);
-                u.MustChangePassword = false;
+                if (result.Errors?.Count > 0)
+                    return BadRequest(new { errors = result.Errors });
+                return NotFound();
             }
 
             _logger.Debug("Admin user {admin} updated user {user}", User.Identity?.Name, id);
-            _db.SaveChanges();
-            return Ok(new { id = u.Id });
+            return Ok(new { id = result.Id });
         }
     }
 }

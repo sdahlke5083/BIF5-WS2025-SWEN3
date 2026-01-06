@@ -10,7 +10,6 @@ namespace Paperless.REST.API.Models
         [MinLength(6)]
         public string? Password { get; set; }
 
-        [MinLength(6)]
         public string? CurrentPassword { get; set; }
     }
 }

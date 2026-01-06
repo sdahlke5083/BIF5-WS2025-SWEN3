@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Paperless.REST.BLL.Security;
 
 namespace Paperless.REST.Test.Controllers
 {
@@ -13,7 +14,8 @@ namespace Paperless.REST.Test.Controllers
         public void ListUsers_Returns_Ok_For_Admin()
         {
             var db = TestUtils.CreateInMemoryDb("admin1");
-            var controller = new AdminUsersController(db);
+            var userService = new UserService(db);
+            var controller = new AdminUsersController(userService);
 
             // create admin principal
             var user = db.Users.Include(u => u.UserRoles).First();

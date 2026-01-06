@@ -164,4 +164,27 @@ public class MyElasticSearchClient
             return null;
         return resp.Source;
     }
+
+    public async Task DeleteDocumentAsync(Guid id)
+    {
+        try
+        {
+            var resp = await _esClient.DeleteAsync<object>(_indexName, id.ToString()).ConfigureAwait(false);
+
+            if (!resp.IsValidResponse)
+            {
+                // Wenn Dokument nicht existiert, ignorieren
+                var status = resp.ApiCallDetails.HttpStatusCode;
+                if (status == 404)
+                    return;
+
+                // Sonstige Fehler protokollieren
+                Console.WriteLine($"MyElasticSearchClient: could not delete document {id}. HTTP status: {status}. Debug: {resp.ApiCallDetails?.DebugInformation}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"MyElasticSearchClient: exception while deleting document {id}: {ex.Message}");
+        }
+    }
 }
