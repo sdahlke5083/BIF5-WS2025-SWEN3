@@ -1,24 +1,24 @@
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using System.Text.Json;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Threading.Tasks;
-using Microsoft.JSInterop;
-using System.Text.Json;
+using System;
 
 namespace Paperless.UI.Services
 {
     public class AuthService : IAuthService
     {
         private readonly HttpClient _http;
-        private readonly IJSRuntime _js;
+        private readonly ProtectedLocalStorage _storage;
         private string? _token;
         private bool _loaded = false;
 
         private const string TokenKey = "paperless.token";
 
-        public AuthService(HttpClient http, IJSRuntime js)
+        public AuthService(HttpClient http, ProtectedLocalStorage storage)
         {
             _http = http;
-            _js = js;
+            _storage = storage;
         }
 
         public string? Token => _token;
@@ -28,11 +28,22 @@ namespace Paperless.UI.Services
             if (_loaded) return;
             try
             {
-                var t = await _js.InvokeAsync<string>("localStorage.getItem", TokenKey);
-                if (!string.IsNullOrWhiteSpace(t)) _token = t;
+                var prev = _token;
+                var res = await _storage.GetAsync<string>(TokenKey);
+                if (res.Success && !string.IsNullOrWhiteSpace(res.Value)) _token = res.Value;
+                _loaded = true;
+
+                // if a token was loaded now but previously was empty, notify subscribers
+                if (string.IsNullOrWhiteSpace(prev) && !string.IsNullOrWhiteSpace(_token))
+                {
+                    try { TokenChanged?.Invoke(); } catch { }
+                }
             }
-            catch { }
-            finally { _loaded = true; }
+            catch(Exception ex)
+            {
+                // If ProtectedLocalStorage isn't available for any reason, mark loaded so we don't loop.
+                _loaded = true;
+            }
         }
 
         public event Action? TokenChanged;
@@ -49,7 +60,7 @@ namespace Paperless.UI.Services
                 _token = t.GetString();
                 if (!string.IsNullOrWhiteSpace(_token))
                 {
-                    try { await _js.InvokeVoidAsync("localStorage.setItem", TokenKey, _token); } catch { }
+                    try { await _storage.SetAsync(TokenKey, _token); } catch { }
                 }
                 TokenChanged?.Invoke();
                 return !string.IsNullOrWhiteSpace(_token);
@@ -60,7 +71,7 @@ namespace Paperless.UI.Services
         public void Logout()
         {
             _token = null;
-            try { _ = _js.InvokeVoidAsync("localStorage.removeItem", TokenKey); } catch { }
+            try { _ = _storage.DeleteAsync(TokenKey); } catch { }
             TokenChanged?.Invoke();
         }
     }

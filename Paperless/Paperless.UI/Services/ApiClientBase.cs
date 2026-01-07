@@ -1,8 +1,5 @@
-using System;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using System.Net.Http.Headers;
 
 namespace Paperless.UI.Services
 {
@@ -17,6 +14,30 @@ namespace Paperless.UI.Services
             _http = http;
             _auth = auth;
             _nav = nav;
+            // ensure HttpClient default auth header reflects current token and updates when it changes
+            try
+            {
+                UpdateAuthHeader();
+                _auth.TokenChanged += UpdateAuthHeader;
+            }
+            catch { }
+        }
+
+        private void UpdateAuthHeader()
+        {
+            try
+            {
+                var token = _auth.Token;
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+                else
+                {
+                    _http.DefaultRequestHeaders.Authorization = null;
+                }
+            }
+            catch { }
         }
 
         protected async Task<T?> GetOrHandleUnauthorizedAsync<T>(string url)

@@ -1,14 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using NUnit.Framework;
 using Paperless.REST.API.Controllers;
+using Paperless.REST.BLL.Search;
 using Paperless.REST.BLL.Storage;
+using Paperless.REST.DAL.Exceptions;
 using Paperless.REST.DAL.Models;
+using Paperless.REST.DAL.Repositories;
+using System.Text;
 
 namespace Paperless.REST.Test.Controllers
 {
@@ -18,10 +16,11 @@ namespace Paperless.REST.Test.Controllers
         public void DeleteDocument_Success_Returns_NoContent()
         {
             var db = TestUtils.CreateInMemoryDb("del_ok");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<System.Threading.CancellationToken>())).Returns(System.Threading.Tasks.Task.CompletedTask);
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.DeleteDocument(Guid.NewGuid()) as NoContentResult;
             Assert.That(res, Is.Not.Null);
@@ -32,10 +31,11 @@ namespace Paperless.REST.Test.Controllers
         public void DeleteDocument_DataAccessException_Returns_NotFound()
         {
             var db = TestUtils.CreateInMemoryDb("del_notfound");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<System.Threading.CancellationToken>())).ThrowsAsync(new Paperless.REST.DAL.Exceptions.DataAccessException("not found"));
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ThrowsAsync(new DataAccessException("not found"));
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.DeleteDocument(Guid.NewGuid()) as NotFoundResult;
             Assert.That(res, Is.Not.Null);
@@ -46,9 +46,10 @@ namespace Paperless.REST.Test.Controllers
         public void DownloadFile_DocumentOrFileMissing_Returns_NotFound()
         {
             var db = TestUtils.CreateInMemoryDb("down_nf");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
+            var repoMock = new Mock<IDocumentRepository>();
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.DownloadFile(Guid.NewGuid(), String.Empty) as NotFoundResult;
             Assert.That(res, Is.Not.Null);
@@ -81,12 +82,13 @@ namespace Paperless.REST.Test.Controllers
             db.FileVersions.Add(fv);
             db.SaveChanges();
 
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
+            var repoMock = new Mock<IDocumentRepository>();
             var fileStorageMock = new Mock<IFileStorageService>();
+            var esClientMock = new Mock<MyElasticSearchClient>();
             var mem = new MemoryStream(Encoding.UTF8.GetBytes("hello"));
-            fileStorageMock.Setup(f => f.OpenReadStreamAsync(It.IsAny<string>(), It.IsAny<System.Threading.CancellationToken>())).ReturnsAsync(mem);
+            fileStorageMock.Setup(f => f.OpenReadStreamAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(mem);
 
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.DownloadFile(doc.Id, String.Empty) as FileStreamResult;
             Assert.That(res, Is.Not.Null);
@@ -97,10 +99,11 @@ namespace Paperless.REST.Test.Controllers
         public void GetDocument_NotFound_Returns_404()
         {
             var db = TestUtils.CreateInMemoryDb("get_nf");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<System.Threading.CancellationToken>())).ReturnsAsync((Document?)null);
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync((Document?)null);
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.GetDocument(Guid.NewGuid(), String.Empty) as NotFoundResult;
             Assert.That(res, Is.Not.Null);
@@ -118,10 +121,11 @@ namespace Paperless.REST.Test.Controllers
             db.DocumentMetadatas.Add(meta);
             db.SaveChanges();
 
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.GetByIdAsync(doc.Id, It.IsAny<System.Threading.CancellationToken>())).ReturnsAsync(doc);
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.GetByIdAsync(doc.Id, It.IsAny<CancellationToken>())).ReturnsAsync(doc);
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.GetDocument(doc.Id, String.Empty) as OkObjectResult;
             Assert.That(res, Is.Not.Null);
@@ -143,10 +147,11 @@ namespace Paperless.REST.Test.Controllers
             db.FileVersions.Add(fv);
             db.SaveChanges();
 
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.GetAllActiveAsync(It.IsAny<System.Threading.CancellationToken>())).ReturnsAsync(new List<Document> { doc });
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.GetAllActiveAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<Document> { doc });
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.ListDocuments(String.Empty, 1, 20, String.Empty, String.Empty, null, null, null, null, null, null, null, null, String.Empty, null) as OkObjectResult;
             Assert.That(res, Is.Not.Null);
@@ -157,10 +162,11 @@ namespace Paperless.REST.Test.Controllers
         public void ListDeleted_Returns_Ok()
         {
             var db = TestUtils.CreateInMemoryDb("list_del");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.GetAllDeleted(It.IsAny<System.Threading.CancellationToken>())).ReturnsAsync(new List<Document>());
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.GetAllDeleted(It.IsAny<CancellationToken>())).ReturnsAsync(new List<Document>());
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.ListDeleted(null, null) as OkObjectResult;
             Assert.That(res, Is.Not.Null);
@@ -171,10 +177,11 @@ namespace Paperless.REST.Test.Controllers
         public void PurgeDocument_NotFound_Returns_404()
         {
             var db = TestUtils.CreateInMemoryDb("purge_nf");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.PermanentlyDeleteAsync(It.IsAny<Guid>(), It.IsAny<System.Threading.CancellationToken>())).ThrowsAsync(new Paperless.REST.DAL.Exceptions.DataAccessException("no"));
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.PermanentlyDeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ThrowsAsync(new DataAccessException("no"));
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.PurgeDocument(Guid.NewGuid()) as NotFoundResult;
             Assert.That(res, Is.Not.Null);
@@ -185,10 +192,11 @@ namespace Paperless.REST.Test.Controllers
         public void RestoreDocument_Success_Returns_NoContent()
         {
             var db = TestUtils.CreateInMemoryDb("restore_ok");
-            var repoMock = new Mock<Paperless.REST.DAL.Repositories.IDocumentRepository>();
-            repoMock.Setup(r => r.RestoreAsync(It.IsAny<Guid>(), It.IsAny<System.Threading.CancellationToken>())).Returns(System.Threading.Tasks.Task.CompletedTask);
+            var repoMock = new Mock<IDocumentRepository>();
+            repoMock.Setup(r => r.RestoreAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             var fileStorageMock = new Mock<IFileStorageService>();
-            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object);
+            var esClientMock = new Mock<MyElasticSearchClient>();
+            var controller = new DocumentsController(db, repoMock.Object, fileStorageMock.Object, esClientMock.Object);
 
             var res = controller.RestoreDocument(Guid.NewGuid()) as NoContentResult;
             Assert.That(res, Is.Not.Null);

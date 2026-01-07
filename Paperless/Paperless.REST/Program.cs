@@ -1,13 +1,15 @@
-using Elastic.Clients.Elasticsearch.Ingest;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NLog.Web;
 using Paperless.REST.API.Middleware;
 using Paperless.REST.BLL.Diagnostics;
 using Paperless.REST.BLL.Models;
 using Paperless.REST.BLL.Search;
+using Paperless.REST.BLL.Security;
 using Paperless.REST.BLL.Storage;
 using Paperless.REST.BLL.Uploads;
 using Paperless.REST.BLL.Worker;
@@ -24,7 +26,7 @@ builder.UseNLog();
 
 var services = builder.Services;
 
-// Configure RabbitMQ options from environment variables (fallback to sensible defaults)
+// Configure Options
 services.Configure<RabbitMqOptions>(opts =>
 {
     opts.ServerAddress = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "paperless-rabbitmq";
@@ -37,16 +39,31 @@ services.Configure<RabbitMqOptions>(opts =>
     opts.Durable = true;
 });
 
-// MinIO Storage configuration
 services.Configure<MinioStorageOptions>(
     builder.Configuration
         .GetSection("Paperless")
         .GetSection("Storage")
         .GetSection("Minio"));
 
+// Add Singletons
 services.AddSingleton<IFileStorageService, MinioFileStorageService>();
+services.AddSingleton<MyElasticSearchClient>();
+services.AddSingleton<RabbitMqConnection>();
+services.AddSingleton<IRabbitMqConnection>(sp => sp.GetRequiredService<RabbitMqConnection>());
+services.AddSingleton<IDocumentEventPublisher, DocumentEventPublisher>();
+
+services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RabbitMqConnection>());
+
+// Add Scoped
 services.AddScoped<IInfrastructureHealthChecker, InfrastructureHealthChecker>();
 services.AddScoped<IDiagnosticsService, DiagnosticsService>();
+services.AddScoped<IAuthorizationHandler, ShareTokenHandler>();
+services.AddScoped<IDocumentRepository, DocumentRepository>();
+services.AddScoped<IUploadService, UploadService>();
+services.AddScoped<ILoginService, LoginService>();
+services.AddScoped<IUserService, UserService>();
+
+services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
 
 // Add services to the container.
 services.AddControllers().AddJsonOptions(x =>
@@ -56,39 +73,15 @@ services.AddControllers().AddJsonOptions(x =>
 
 // Register HttpClient factory for Elasticsearch/worker calls
 services.AddHttpClient();
-
-// Register MyElasticSearchClient as singleton using the official Elasticsearch .NET client
-services.AddSingleton<MyElasticSearchClient>();
-
 // Register HttpContextAccessor and our authorization handler
 services.AddHttpContextAccessor();
-// Note: handler implemented below in this file; register as Scoped to allow repository usage per-request
-services.AddScoped<IAuthorizationHandler, ShareTokenHandler>();
 
 services.AddDbContext<PostgressDbContext>(o =>
 {
     o.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection"));
     o.UseCamelCaseNamingConvention();
 });
-services.AddSingleton<RabbitMqConnection>();
-services.AddSingleton<IRabbitMqConnection>(sp => sp.GetRequiredService<RabbitMqConnection>());
-services.AddHostedService(sp => sp.GetRequiredService<RabbitMqConnection>());
-services.AddSingleton<DocumentEventPublisher>();
-services.AddSingleton<IDocumentEventPublisher>(sp => sp.GetRequiredService<DocumentEventPublisher>());
 
-
-// Add the Upload Service
-services.AddScoped<IUploadService>(sp =>
-{
-    var repo = sp.GetRequiredService<IDocumentRepository>();
-    var config = sp.GetRequiredService<IConfiguration>();
-    var service = new UploadService(repo);
-    service.Path = config.GetSection("Paperless").GetSection("Path").Value ?? "/.data/Files"; //TODO: fix this
-    return service;
-});
-
-// Add the repositories
-services.AddScoped<IDocumentRepository, DocumentRepository>();
 
 // Add Development Services
 services.AddEndpointsApiExplorer();
@@ -151,26 +144,26 @@ services.AddSwaggerGen(options =>
 // Authentication & Authorization
 services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
-    // Minimal JWT validation setup - expects configuration at "Jwt:Key", "Jwt:Issuer" and "Jwt:Audience"
     var key = builder.Configuration["Jwt:Key"] ?? "please_change_this_secret_in_production";
     var issuer = builder.Configuration["Jwt:Issuer"] ?? "paperless.local";
     var audience = builder.Configuration["Jwt:Audience"] ?? "paperless.local";
 
     options.RequireHttpsMetadata = false;
-    options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+    options.TokenValidationParameters = new TokenValidationParameters
     {
+        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
+        ValidIssuer = issuer,
+        ValidAudience = audience,
         ValidateIssuer = false,
         ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)),
-        ValidIssuer = issuer,
-        ValidAudience = audience
+        ClockSkew = TimeSpan.Zero
     };
 });
 

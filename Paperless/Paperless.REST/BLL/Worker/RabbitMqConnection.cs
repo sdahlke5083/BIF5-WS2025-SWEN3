@@ -11,6 +11,8 @@ namespace Paperless.REST.BLL.Worker
         private IChannel? _channel;
         private IConnection? _connection;
         private RabbitMqOptions? _options;
+        // protect channel creation / recreation across concurrent callers
+        private readonly System.Threading.SemaphoreSlim _channelLock = new(1, 1);
         public IConnection Connection => _connection ?? throw new InvalidOperationException("RabbitMQ connection has not been established.");
         public IChannel Channel => _channel ?? throw new InvalidOperationException("RabbitMQ channel has not been created.");
 
@@ -118,12 +120,52 @@ namespace Paperless.REST.BLL.Worker
 
         public async Task<IChannel> CreateChannelAsync(CancellationToken ct = default)
         {
-            if (_channel == null)
-            {
-                if (_connection == null)
-                    throw new InvalidOperationException("RabbitMQ connection has not been established.");
+            if (_connection == null)
+                throw new InvalidOperationException("RabbitMQ connection has not been established.");
 
-                _channel = await Connection.CreateChannelAsync(null, ct);
+            await _channelLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                // If we already have a channel, ensure it's still usable. Some channel implementations
+                // may become disposed after network errors or reconnection; attempting an operation
+                // such as declaring the (already declared) exchange is a harmless way to validate it.
+                if (_channel != null)
+                {
+                    try
+                    {
+                        if (_options != null && !string.IsNullOrWhiteSpace(_options.ExchangeName))
+                        {
+                            await _channel.ExchangeDeclareAsync(exchange: _options.ExchangeName, type: _options.ExchangeType ?? "direct", durable: _options.Durable, autoDelete: false, arguments: null, cancellationToken: ct).ConfigureAwait(false);
+                        }
+
+                        return _channel;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        _logger.Warn("Existing RabbitMQ channel was disposed; recreating channel.");
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        _logger.Warn("Existing RabbitMQ channel in invalid state; recreating channel.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Warn(ex, "Existing RabbitMQ channel is not usable; recreating channel.");
+                    }
+
+                    try
+                    {
+                        await _channel.DisposeAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Debug(ex, "Error disposing unusable channel while recreating.");
+                    }
+                    _channel = null;
+                }
+
+                // create a new channel
+                _channel = await Connection.CreateChannelAsync(null, ct).ConfigureAwait(false);
 
                 if (_options == null)
                     throw new InvalidOperationException("RabbitMQ options have not been set.");
@@ -131,12 +173,17 @@ namespace Paperless.REST.BLL.Worker
                 // Declare configured exchange
                 if (!string.IsNullOrWhiteSpace(_options.ExchangeName))
                 {
-                    await _channel.ExchangeDeclareAsync(exchange: _options.ExchangeName, type: _options.ExchangeType ?? "direct", durable: _options.Durable, autoDelete: false, arguments: null, cancellationToken: ct);
+                    await _channel.ExchangeDeclareAsync(exchange: _options.ExchangeName, type: _options.ExchangeType ?? "direct", durable: _options.Durable, autoDelete: false, arguments: null, cancellationToken: ct).ConfigureAwait(false);
                 }
 
                 // No queue declarations here; per-worker consumers declare and bind their own queues
+
+                return _channel;
             }
-            return _channel;
+            finally
+            {
+                _channelLock.Release();
+            }
         }
     }
 }

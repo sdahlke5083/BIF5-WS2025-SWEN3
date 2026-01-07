@@ -1,6 +1,3 @@
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 
 namespace Paperless.UI.Services
@@ -9,13 +6,11 @@ namespace Paperless.UI.Services
     {
         private readonly IAuthService _auth;
         private readonly NavigationManager _nav;
-        private readonly INotificationService _notify;
 
-        public AuthMessageHandler(IAuthService auth, NavigationManager nav, INotificationService notify)
+        public AuthMessageHandler(IAuthService auth, NavigationManager nav)
         {
             _auth = auth;
             _nav = nav;
-            _notify = notify;
         }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -35,7 +30,6 @@ namespace Paperless.UI.Services
                     {
                         // token expired -> logout and redirect with notification
                         try { _auth.Logout(); } catch { }
-                        try { _notify.Notify("Session expired. Please login again.", "warning"); } catch { }
                         try { _nav.NavigateTo("/login"); } catch { }
                         return new HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized) { RequestMessage = request };
                     }
@@ -44,14 +38,16 @@ namespace Paperless.UI.Services
 
                 if (!request.Headers.Contains("Authorization"))
                     request.Headers.Add("Authorization", "Bearer " + token);
-            }
+                }
 
             var resp = await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
-            // if server says unauthorized, surface notification
+            // if server says unauthorized, log, logout and redirect
             if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                try { _notify.Notify("You have been logged out. Please sign in again.", "warning"); } catch { }
+                try { Console.WriteLine("AuthMessageHandler: server responded 401 Unauthorized"); } catch { }
+                try { _auth.Logout(); } catch { }
+                try { _nav.NavigateTo("/login"); } catch { }
             }
 
             return resp;

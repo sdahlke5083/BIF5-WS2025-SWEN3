@@ -1,9 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Paperless.REST.API.Models;
 using Paperless.REST.BLL.Security;
-using Paperless.REST.DAL.DbContexts;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -19,8 +17,8 @@ namespace Paperless.REST.API.Controllers
     [ApiController]
     public class AuthController : ControllerBase
     {
-        private readonly PostgressDbContext _db;
-        private readonly IConfiguration _config;
+        private readonly IUserService _userService;
+        private readonly ILoginService _loginService;
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
 
         /// <summary>
@@ -28,13 +26,13 @@ namespace Paperless.REST.API.Controllers
         /// configuration settings.
         /// </summary>
         /// <remarks>Use this constructor to provide the necessary dependencies for authentication
-        /// functionality. Both parameters must be non-null.</remarks>
-        /// <param name="db">The database context used to access and manage authentication-related data.</param>
-        /// <param name="config">The application configuration settings used for authentication operations.</param>
-        public AuthController(PostgressDbContext db, IConfiguration config)
+        /// functionality. All parameters must be non-null.</remarks>
+        /// <param name="userService">The user service used to manage jwt_username profiles and data.</param>
+        /// <param name="loginService">The login service used to authenticate users and issue tokens.</param>
+        public AuthController(IUserService userService, ILoginService loginService)
         {
-            _db = db;
-            _config = config;
+            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _loginService = loginService ?? throw new ArgumentNullException(nameof(loginService));
         }
 
         /// <summary>
@@ -52,37 +50,13 @@ namespace Paperless.REST.API.Controllers
         [Route("/v1/auth/login")]
         public IActionResult Login([FromBody] LoginRequest req)
         {
-            if (req is null) return BadRequest();
+            if (req is null) 
+                return BadRequest();
 
-            var user = _db.Users.FirstOrDefault(u => u.Username == req.Username);
-            if (user is null) return Unauthorized();
-
-            // verify password
-            if (!PasswordHasher.Verify(req.Password, user.Password))
+            // Verwende constructor-injiziertes Login-Service statt RequestServices.GetService
+            var tokenString = _loginService.Authenticate(req.Username, req.Password);
+            if (tokenString is null)
                 return Unauthorized();
-
-            var key = _config["Jwt:Key"] ?? _config["Jwt__Key"] ?? "please_change_this_secret_in_production";
-            var issuer = _config["Jwt:Issuer"] ?? _config["Jwt__Issuer"] ?? "paperless.local";
-            var audience = _config["Jwt:Audience"] ?? _config["Jwt__Audience"] ?? "paperless.local";
-
-            var claims = new[] {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username)
-            };
-
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddHours(8),
-                Issuer = issuer,
-                Audience = audience,
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(key)), SecurityAlgorithms.HmacSha256Signature)
-            };
-
-            var token = tokenHandler.CreateToken(tokenDescriptor);
-            var tokenString = tokenHandler.WriteToken(token);
-            _logger.Info("User '{0}' logged in successfully.", user.Username);
 
             return Ok(new { token = tokenString });
         }
@@ -91,57 +65,41 @@ namespace Paperless.REST.API.Controllers
         /// Get current user's profile
         /// </summary>
         [HttpGet]
+        [Authorize]
         [Route("/v1/users/me")]
         public IActionResult GetProfile()
         {
-            var jwt_username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (!Guid.TryParse(jwt_username, out var userId)) 
+            var jwt_username = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(jwt_username, out var userId))
                 return Unauthorized();
-            
-            var user = _db.Users.AsNoTracking().FirstOrDefault(x => x.Id == userId);
-            if (user is null) 
-                return NotFound();
-            
-            return Ok(new { id = user.Id, username = user.Username, displayName = user.DisplayName, mustChangePassword = user.MustChangePassword });
+
+            var dto = _userService.GetProfile(userId);
+            if (dto is null) return NotFound();
+
+            return Ok(new { id = dto.Id, username = dto.Username, displayName = dto.DisplayName, mustChangePassword = dto.MustChangePassword });
         }
 
         /// <summary>
         /// Update current user's profile (display name and/or password)
         /// </summary>
         [HttpPatch]
+        [Authorize]
         [Route("/v1/users/me")]
         public IActionResult UpdateProfile([FromBody] UserProfileUpdateRequest req)
         {
-            var jwt_username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (!Guid.TryParse(jwt_username, out var userId)) 
+            var jwt_username = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(jwt_username, out var userId))
                 return Unauthorized();
-            
-            var user = _db.Users.FirstOrDefault(x => x.Id == userId);
-            if (user is null) 
-                return NotFound();
 
-            if (!string.IsNullOrWhiteSpace(req.DisplayName)) 
-                user.DisplayName = req.DisplayName!;
-
-            if (!string.IsNullOrWhiteSpace(req.Password))
+            var result = _userService.UpdateProfile(userId, req, requireCurrentPassword: true);
+            if (!result.Success)
             {
-                // require current password for security
-                if (string.IsNullOrWhiteSpace(req.CurrentPassword)) 
-                    return BadRequest("Current password is required to change password.");
-                if (!PasswordHasher.Verify(req.CurrentPassword!, user.Password))
-                    return BadRequest("Current password is incorrect.");
-
-                // apply complexity rules
-                var errors = PasswordValidator.Validate(req.Password!);
-                if (errors.Count > 0)
-                    return BadRequest(new { errors });
-
-                user.Password = PasswordHasher.Hash(req.Password!);
-                user.MustChangePassword = false;
+                if (result.Errors?.Count > 0)
+                    return BadRequest(new { errors = result.Errors });
+                return NotFound();
             }
 
-            _db.SaveChanges();
-            return Ok(new { id = user.Id });
+            return Ok(new { id = result.Id });
         }
     }
 }

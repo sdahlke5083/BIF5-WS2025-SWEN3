@@ -3,8 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Paperless.REST.API.Models;
 using Paperless.REST.API.Models.BaseResponse;
+using Paperless.REST.BLL.Exceptions;
+using Paperless.REST.BLL.Search;
+using Paperless.REST.BLL.Storage;
 using Paperless.REST.DAL.DbContexts;
+using Paperless.REST.DAL.Exceptions;
 using Paperless.REST.DAL.Models;
+using Paperless.REST.DAL.Repositories;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 
@@ -18,8 +23,9 @@ namespace Paperless.REST.API.Controllers
     {
         private readonly NLog.Logger _logger = NLog.LogManager.GetCurrentClassLogger();
         private readonly PostgressDbContext _db;
-        private readonly DAL.Repositories.IDocumentRepository _repo;
-        private readonly BLL.Storage.IFileStorageService _fileStorage;
+        private readonly IDocumentRepository _repo;
+        private readonly IFileStorageService _fileStorage;
+        private readonly MyElasticSearchClient _esclient;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentsController"/> class with the specified database
@@ -30,11 +36,13 @@ namespace Paperless.REST.API.Controllers
         /// <param name="db">The database context used for data access operations.</param>
         /// <param name="repo">The document repository that provides access to document data.</param>
         /// <param name="fileStorage">The file storage service used for managing document files.</param>
-        public DocumentsController(PostgressDbContext db, DAL.Repositories.IDocumentRepository repo, BLL.Storage.IFileStorageService fileStorage)
+        /// <param name="esclient">Elastic search client</param>
+        public DocumentsController(PostgressDbContext db, IDocumentRepository repo, IFileStorageService fileStorage, MyElasticSearchClient esclient)
         {
             _db = db;
             _repo = repo;
             _fileStorage = fileStorage;
+            _esclient = esclient;
         }
 
         /// <summary>
@@ -59,7 +67,7 @@ namespace Paperless.REST.API.Controllers
                 _repo.DeleteAsync(id).GetAwaiter().GetResult();
                 return NoContent();
             }
-            catch (DAL.Exceptions.DataAccessException)
+            catch (DataAccessException)
             {
                 return NotFound();
             }
@@ -84,8 +92,6 @@ namespace Paperless.REST.API.Controllers
         [Route("/v1/documents/{id}/file")]
         [Authorize(Policy = "shareToken")]
         [Authorize]
-        //[ProducesResponseType(statusCode: 200, type: typeof(Stream))]
-        //[ProducesResponseType(statusCode: 206, type: typeof(Stream))]
         [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
@@ -108,7 +114,7 @@ namespace Paperless.REST.API.Controllers
                 var stream = _fileStorage.OpenReadStreamAsync(objectName).GetAwaiter().GetResult();
                 return File(stream, file.FileType?.MimeType ?? "application/octet-stream", file.OriginalFileName, enableRangeProcessing: true);
             }
-            catch (BLL.Exceptions.FileStorageException ex)
+            catch (FileStorageException ex)
             {
                 _logger.Warn(ex, "File not found in storage: {Object}", objectName);
                 return NotFound();
@@ -125,6 +131,7 @@ namespace Paperless.REST.API.Controllers
         /// The OCR worker stores it in MinIO as "{documentId}/thumbnail.png".
         /// </summary>
         [HttpGet]
+        [Authorize]
         [Route("/v1/documents/{id}/thumbnail")]
         public virtual async Task<IActionResult> GetThumbnail([FromRoute(Name = "id")][Required] Guid id)
         {
@@ -135,7 +142,7 @@ namespace Paperless.REST.API.Controllers
                 var stream = await _fileStorage.OpenReadStreamAsync(objectName);
                 return File(stream, "image/png");
             }
-            catch (Paperless.REST.BLL.Exceptions.FileStorageException ex)
+            catch (FileStorageException ex)
             {
                 _logger.Warn(ex, "Thumbnail not found in storage: {Object}", objectName);
                 return NotFound();
@@ -158,13 +165,12 @@ namespace Paperless.REST.API.Controllers
         /// <response code="404">Not found</response>
         [HttpGet]
         [Route("/v1/documents/{id}")]
-        //[Authorize(Policy = "shareToken")]
-        //[Authorize]
+        [Authorize(Policy = "shareToken")]
         //[ProducesResponseType(statusCode: 200, type: typeof(Document))]
         [ProducesResponseType(statusCode: 401, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 403, type: typeof(ProblemResponse))]
         [ProducesResponseType(statusCode: 404, type: typeof(ProblemResponse))]
-        public virtual IActionResult GetDocument([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string xSharePassword)
+        public virtual IActionResult GetDocument([FromRoute (Name = "id")][Required]Guid id, [FromHeader (Name = "X-Share-Password")]string? xSharePassword)
         {
             var doc = _repo.GetByIdAsync(id).GetAwaiter().GetResult();
             if (doc is null)
@@ -204,7 +210,7 @@ namespace Paperless.REST.API.Controllers
         /// <response code="200">Paged deleted documents</response>
         [HttpGet]
         [Route("/v1/recycle-bin")]
-        //[Authorize]
+        [Authorize]
         //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
         public virtual IActionResult ListDeleted([FromQuery (Name = "page")]int? page, [FromQuery (Name = "pageSize")]int? pageSize)
         {
@@ -245,8 +251,8 @@ namespace Paperless.REST.API.Controllers
         /// <response code="400">Bad Request: wrong format or missing data</response>
         [HttpGet]
         [Route("/v1/documents")]
-        //[Authorize]
-        //[ProducesResponseType(statusCode: 200, type: typeof(DocumentPage))]
+        [Authorize]
+        [ProducesResponseType(statusCode: 200)]
         [ProducesResponseType(400)]
         public virtual IActionResult ListDocuments(
             [FromQuery (Name = "q")]string? q, 
@@ -315,8 +321,7 @@ namespace Paperless.REST.API.Controllers
         /// <response code="200">Summaries</response>
         [HttpGet]
         [Route("/v1/documents/{id}/summaries")]
-        //[Authorize]
-        //[ProducesResponseType(statusCode: 200, type: typeof(ListSummaries200Response))]
+        [Authorize]
         public virtual async Task<IActionResult> ListSummaries([FromRoute (Name = "id")][Required]Guid id)
         {
             var doc = await _db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
@@ -376,6 +381,14 @@ namespace Paperless.REST.API.Controllers
                 LengthPresetId = presetId
             };
 
+            var processingState = await _db.ProcessingStatuses
+                .Where(ps => ps.DocumentId == doc.Id).FirstOrDefaultAsync();
+            if (processingState is not null)
+            {
+                processingState.Summary = ProcessingState.Succeeded;
+                _db.ProcessingStatuses.Update(processingState);
+            }
+
             await _db.DocumentSummaries.AddAsync(summary);
             await _db.SaveChangesAsync();
 
@@ -418,7 +431,7 @@ namespace Paperless.REST.API.Controllers
         /// Update document metadata (JSON Merge Patch)
         /// </summary>
         /// <param name="id"></param>
-        /// <param name="documentPatch"></param>
+        /// <param name="body">JSON Merge Patch document</param>
         /// <param name="ifMatch">Strong ETag of the resource to guard against concurrent updates.</param>
         /// <response code="200">Updated</response>
         /// <response code="400">Bad request</response>
@@ -461,7 +474,7 @@ namespace Paperless.REST.API.Controllers
 
                 // apply merge patch for simple fields: title, description, languageCode, workspaceId
                 var latestMeta = doc.MetadataVersions.OrderByDescending(m => m.Version).FirstOrDefault();
-                var newMeta = new DAL.Models.DocumentMetadata
+                var newMeta = new DocumentMetadata
                 {
                     DocumentId = doc.Id,
                     Version = (latestMeta?.Version ?? 0) + 1,
@@ -530,10 +543,23 @@ namespace Paperless.REST.API.Controllers
                     try { _fileStorage.DeleteFileAsync(objectName).GetAwaiter().GetResult(); } catch { /* ignore */ }
                 }
 
+                // remove document from Elasticsearch index (best-effort)
+                try
+                {
+                    if (_esclient != null)
+                    {
+                        _esclient.DeleteDocumentAsync(id).GetAwaiter().GetResult();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warn(ex, "Failed to remove document {Id} from Elasticsearch", id);
+                }
+
                 _repo.PermanentlyDeleteAsync(id).GetAwaiter().GetResult();
                 return NoContent();
             }
-            catch (DAL.Exceptions.DataAccessException)
+            catch (DataAccessException)
             {
                 return NotFound();
             }
@@ -565,7 +591,7 @@ namespace Paperless.REST.API.Controllers
                 _repo.RestoreAsync(id).GetAwaiter().GetResult();
                 return NoContent();
             }
-            catch (DAL.Exceptions.DataAccessException)
+            catch (DataAccessException)
             {
                 return NotFound();
             }

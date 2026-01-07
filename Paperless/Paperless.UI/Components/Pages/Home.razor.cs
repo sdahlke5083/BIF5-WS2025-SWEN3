@@ -1,11 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Paperless.UI.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Paperless.UI.Components.Pages;
 
@@ -13,6 +7,12 @@ public partial class Home
 {
     [Inject]
     public IDocumentsApiClient DocsApi { get; set; } = default!;
+
+    [Inject]
+    public IAuthService Auth { get; set; } = default!;
+
+    [Inject]
+    public NavigationManager Nav { get; set; } = default!;
 
     // Damit /ready pollen kann (plain client ohne Auth-Handler)
     [Inject]
@@ -66,6 +66,18 @@ public partial class Home
             LoadingMessage = "Loading documents...";
             await SafeStateHasChangedAsync();
 
+            // ensure auth token loaded before calling protected endpoints
+            try { await Auth.EnsureLoadedAsync(); } catch { }
+            if (string.IsNullOrWhiteSpace(Auth.Token))
+            {
+                // not authenticated -> redirect to login
+                IsLoading = false;
+                ErrorMessage = "Not authenticated";
+                await SafeStateHasChangedAsync();
+                try { Nav.NavigateTo("/login"); } catch { }
+                return;
+            }
+
             // Liste ALLER Dokumente aus der DB
             var page = await DocsApi.ListAsync(q: "", page: 1, pageSize: 200);
 
@@ -107,7 +119,7 @@ public partial class Home
         while (DateTimeOffset.UtcNow - started < timeout)
         {
             attempt++;
-            LoadingMessage = $"Starting services... (attempt {attempt})";
+            LoadingMessage = $"Checking services... (attempt {attempt})";
             await SafeStateHasChangedAsync();
 
             try

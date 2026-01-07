@@ -1,11 +1,10 @@
-using NUnit.Framework;
-using Paperless.REST.API.Controllers;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using System.Collections.Generic;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
+using Paperless.REST.API.Controllers;
 using Paperless.REST.API.Models;
+using Paperless.REST.BLL.Security;
+using System.Security.Claims;
 
 namespace Paperless.REST.Test.Controllers
 {
@@ -22,7 +21,9 @@ namespace Paperless.REST.Test.Controllers
                 { "Jwt__Audience", "test" }
             };
             IConfiguration config = new ConfigurationBuilder().AddInMemoryCollection(inMemorySettings!).Build();
-            var controller = new AuthController(db, config);
+            var userService = new UserService(db);
+            var loginService = new LoginService(userService, config);
+            var controller = new AuthController(userService, loginService);
 
             var req = new LoginRequest { Username = "test", Password = "password" };
             var res = controller.Login(req) as OkObjectResult;
@@ -36,7 +37,9 @@ namespace Paperless.REST.Test.Controllers
         {
             var db = TestUtils.CreateInMemoryDb("auth2");
             IConfiguration config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
-            var controller = new AuthController(db, config);
+            var userService = new UserService(db);
+            var loginService = new LoginService(userService, config);
+            var controller = new AuthController(userService, loginService);
 
             var user = db.Users.First();
             var claims = new[] { new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Name, user.Username) };

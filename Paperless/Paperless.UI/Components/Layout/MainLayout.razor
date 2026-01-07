@@ -1,6 +1,4 @@
 ﻿@inherits LayoutComponentBase
-
-@inject Paperless.UI.Services.IThemeService ThemeService
 @implements IDisposable
 
 @code {
@@ -8,8 +6,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        themeClass = await ThemeService.GetThemeAsync();
-        ThemeService.ThemeChanged += OnThemeChanged;
         await base.OnInitializedAsync();
     }
 
@@ -21,7 +17,6 @@
 
     public void Dispose()
     {
-        try { ThemeService.ThemeChanged -= OnThemeChanged; } catch { }
     }
 }
 

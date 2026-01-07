@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Paperless.REST.API.Controllers;
+using Paperless.REST.BLL.Diagnostics;
 using Paperless.REST.BLL.Worker;
 
 namespace Paperless.REST.Test.Controllers
@@ -17,7 +18,16 @@ namespace Paperless.REST.Test.Controllers
             _mockDependencyChecker = Mock.Of<IInfrastructureHealthChecker>();
             Mock.Get(_mockDependencyChecker).Setup(x => x.CheckDependenciesAsync())
                 .ReturnsAsync((true, Array.Empty<string>()));
-            _controller = new AdminController(_mockDependencyChecker);
+            var _mockDiagnosticsService = Mock.Of<IDiagnosticsService>();
+            Mock.Get(_mockDiagnosticsService).Setup(x => x.GetDiagnosticsAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new DiagnosticsInfo
+                {
+                    ApplicationVersion = "1.0.0",
+                    DatabaseVersion = "1.0.0",
+                    QueueBacklog = 0,
+                    WorkersConnected = true
+                });
+            _controller = new AdminController(_mockDependencyChecker, _mockDiagnosticsService);
             // ensure controller has HttpContext to avoid NullReference when accessing Request
             _controller.ControllerContext = new ControllerContext
             {
@@ -43,9 +53,10 @@ namespace Paperless.REST.Test.Controllers
         }
 
         [Test]
-        public void Diagnostics_Returns_Ok()
+        public async Task Diagnostics_Returns_Ok()
         {
-            var res = _controller.Diagnostics() as OkObjectResult;
+            var actionResult = await _controller.Diagnostics();
+            var res = actionResult as OkObjectResult;
             Assert.That(res, Is.Not.Null);
             Assert.That(res!.StatusCode, Is.EqualTo(200));
         }

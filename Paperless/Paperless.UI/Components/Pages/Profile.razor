@@ -1,7 +1,6 @@
 @page "/profile"
 @inject Paperless.UI.Services.IAuthService Auth
 @inject Paperless.UI.Services.IUsersApiClient UsersApi
-@inject Paperless.UI.Services.INotificationService Notify
 @using Paperless.UI.Services
 
 <h3>Profile</h3>
@@ -49,11 +48,10 @@
         try
         {
             await UsersApi.UpdateProfileAsync(new UserProfileUpdateDto(displayName, newPassword, currentPassword));
-            Notify.Notify("Profile updated", "success");
         }
         catch (Exception ex)
         {
-            Notify.Notify("Failed to update profile: " + ex.Message, "error");
+            
         }
     }
 

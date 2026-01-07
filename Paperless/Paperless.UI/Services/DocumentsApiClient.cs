@@ -1,12 +1,11 @@
-﻿using System.Net;
-using System.Net.Http.Json;
+﻿using Microsoft.AspNetCore.Components;
+using System.Net;
 
 namespace Paperless.UI.Services;
 
-public class DocumentsApiClient : IDocumentsApiClient
+public class DocumentsApiClient : ApiClientBase, IDocumentsApiClient
 {
-    private readonly HttpClient _http;
-    public DocumentsApiClient(HttpClient http) => _http = http;
+    public DocumentsApiClient(HttpClient http, IAuthService auth, NavigationManager nav) : base(http, auth, nav) { }
 
     public Task<DocumentDto?> GetAsync(Guid id)
         => _http.GetFromJsonAsync<DocumentDto>($"/v1/documents/{id}");
@@ -33,7 +32,7 @@ public class DocumentsApiClient : IDocumentsApiClient
     public async Task<DocumentListPageDto> ListAsync(string? q = "", int page = 1, int pageSize = 50)
     {
         var url = $"/v1/documents?q={Uri.EscapeDataString(q ?? string.Empty)}&page={page}&pageSize={pageSize}";
-        var resp = await _http.GetFromJsonAsync<DocumentListPageDto>(url);
+        var resp = await GetOrHandleUnauthorizedAsync<DocumentListPageDto>(url);
         return resp ?? new DocumentListPageDto { page = page, pageSize = pageSize, total = 0, items = new() };
     }
 
